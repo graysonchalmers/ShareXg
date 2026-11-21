@@ -11,13 +11,13 @@
 
         <!-- ShareX Dark theme -->
         <ResourceDictionary x:Key="{x:Static helpers:ThemeManager.ShareXDark}">
-            <Color x:Key="ShareX.Color.Accent.Start">#09AAFF</Color>
-            <Color x:Key="ShareX.Color.Accent.End">#0899E6</Color>
+            <Color x:Key="ShareX.Color.Accent.Start">#F2A33A</Color>
+            <Color x:Key="ShareX.Color.Accent.End">#E08A1E</Color>
             <Color x:Key="ShareX.Color.Accent.Foreground">#111111</Color>
-            <Color x:Key="ShareX.Color.Accent.Text">#0EACFF</Color>
-            <Color x:Key="ShareX.Color.Accent.Border">#09AAFF</Color>
-            <Color x:Key="ShareX.Color.Accent.Icon">#09AAFF</Color>
-            <Color x:Key="ShareX.Color.Link">#0EACFF</Color>
+            <Color x:Key="ShareX.Color.Accent.Text">#F5B04F</Color>
+            <Color x:Key="ShareX.Color.Accent.Border">#F2A33A</Color>
+            <Color x:Key="ShareX.Color.Accent.Icon">#F2A33A</Color>
+            <Color x:Key="ShareX.Color.Link">#F5B04F</Color>
 
             <Color x:Key="ShareX.Color.Text">#D8DADB</Color>
             <Color x:Key="ShareX.Color.Text.Secondary">#D8DADB</Color>
@@ -121,13 +121,13 @@
 
         <!-- ShareX Light -->
         <ResourceDictionary x:Key="{x:Static helpers:ThemeManager.ShareXLight}">
-            <Color x:Key="ShareX.Color.Accent.Start">#09AAFF</Color>
-            <Color x:Key="ShareX.Color.Accent.End">#0899E6</Color>
+            <Color x:Key="ShareX.Color.Accent.Start">#F2A33A</Color>
+            <Color x:Key="ShareX.Color.Accent.End">#E08A1E</Color>
             <Color x:Key="ShareX.Color.Accent.Foreground">#111111</Color>
-            <Color x:Key="ShareX.Color.Accent.Text">#0670A8</Color>
-            <Color x:Key="ShareX.Color.Accent.Border">#078DD4</Color>
-            <Color x:Key="ShareX.Color.Accent.Icon">#09AAFF</Color>
-            <Color x:Key="ShareX.Color.Link">#0670A8</Color>
+            <Color x:Key="ShareX.Color.Accent.Text">#A85E0B</Color>
+            <Color x:Key="ShareX.Color.Accent.Border">#D27F12</Color>
+            <Color x:Key="ShareX.Color.Accent.Icon">#F2A33A</Color>
+            <Color x:Key="ShareX.Color.Link">#A85E0B</Color>
 
             <Color x:Key="ShareX.Color.Text">#4E4E4E</Color>
             <Color x:Key="ShareX.Color.Text.Secondary">#4E4E4E</Color>

@@ -33,7 +33,7 @@ namespace ShareX.AvaloniaUI.Theming;
 public sealed class ApplicationThemeOptions : INotifyPropertyChanged
 {
     public const string DefaultTheme = "Dark";
-    public const string DefaultAccentColorHex = "#09AAFF";
+    public const string DefaultAccentColorHex = "#F2A33A";
 
     private string _theme = DefaultTheme;
     private bool _useSystemTheme = false;

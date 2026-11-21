@@ -81,7 +81,26 @@ internal sealed class MainMenuBuilder
         };
     }
 
+    // ShareXg: slim tray menu. Everything else lives under "More".
     public IReadOnlyList<MainMenuEntry> BuildTrayMenu()
+    {
+        bool autoHide = !_trayMenu;
+        return new List<MainMenuEntry>
+        {
+            Item("Screenshot", AppIcons.Region, () => new CaptureRegion().Capture(autoHide)),
+            Item("Markup", AppIcons.ImageEditor, () => TaskHelpers.OpenImageEditor()),
+            Item("Record GIF", AppIcons.Film, () => TaskHelpers.StartScreenRecording(ScreenRecordOutput.GIF, ScreenRecordStartMethod.Region)),
+            Item("Record clip", AppIcons.ScreenRecording, () => TaskHelpers.StartScreenRecording(ScreenRecordOutput.FFmpeg, ScreenRecordStartMethod.Region)),
+            MainMenuEntry.Separator(),
+            Item(Strings.MainMenuBuilder_ScreenshotsFolder, AppIcons.ScreenshotsFolder, () => Run(MainFormCommand.ScreenshotsFolder)),
+            Item("Settings", AppIcons.Settings, () => Run(MainFormCommand.ApplicationSettings)),
+            Parent("More", AppIcons.Wrench, BuildFullTrayMenu),
+            MainMenuEntry.Separator(),
+            Item(Strings.MainMenuBuilder_Exit, AppIcons.Exit, ApplicationLifecycle.ForceClose)
+        };
+    }
+
+    public IReadOnlyList<MainMenuEntry> BuildFullTrayMenu()
     {
         bool uploadsEnabled = !SystemOptions.DisableUpload;
         List<MainMenuEntry> items = new()
