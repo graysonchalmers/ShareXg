@@ -77,4 +77,12 @@
   <ItemGroup>
     <RuntimeHostConfigurationOption Include="System.Globalization.UseNls" Value="true" />
   </ItemGroup>
+  <Target Name="ShareXgSha" BeforeTargets="GenerateAssemblyInfo">
+    <Exec Command="git rev-parse --short=7 HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="ShareXgSha" />
+    </Exec>
+    <ItemGroup>
+      <AssemblyMetadata Include="GitSha" Value="$(ShareXgSha)" />
+    </ItemGroup>
+  </Target>
 </Project>

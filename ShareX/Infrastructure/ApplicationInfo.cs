@@ -40,11 +40,12 @@ internal static class ApplicationInfo
 
     private static string GetShortSha()
     {
-        string? info = System.Reflection.Assembly.GetExecutingAssembly()
-            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
-            is [System.Reflection.AssemblyInformationalVersionAttribute a, ..] ? a.InformationalVersion : null;
-        int plus = info?.IndexOf('+') ?? -1;
-        return plus >= 0 && info!.Length > plus + 7 ? info.Substring(plus + 1, 7) : "local";
+        foreach (System.Reflection.AssemblyMetadataAttribute m in System.Reflection.Assembly.GetExecutingAssembly()
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false))
+        {
+            if (m.Key == "GitSha" && !string.IsNullOrEmpty(m.Value)) return m.Value;
+        }
+        return "local";
     }
     internal const string MutexName = "6F3B2A1C-9D4E-4C7A-B8E2-5A1F0C3D7E9B";
     internal static readonly string PipeName = $"{Environment.MachineName}-{Environment.UserName}-{Name}";
