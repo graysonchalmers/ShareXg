@@ -172,6 +172,9 @@ internal static class Program
             DebugHelper.WriteLine("Start screen closed.");
         }
 
+        // ShareXg: take PrtSc from Snipping Tool while running; restored on exit or crash.
+        if (!StartupOptions.Sandbox) PrintScreenGuard.Engage();
+
         DebugHelper.WriteLine("Hotkey host init started.");
         MainForm hotkeyHost = new();
         ApplicationLifecycle.AttachHost(hotkeyHost);
