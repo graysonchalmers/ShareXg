@@ -33,8 +33,9 @@ namespace ShareX;
 
 internal static class ApplicationInfo
 {
-    internal const string Name = "ShareX";
-    internal const string MutexName = "82E6AC09-0FEF-4390-AD9F-0DD3F5561EFC";
+    internal const string Name = "ShareXg";
+    internal const string Stamp = "🦊 GLINT · 2026-11-20";
+    internal const string MutexName = "6F3B2A1C-9D4E-4C7A-B8E2-5A1F0C3D7E9B";
     internal static readonly string PipeName = $"{Environment.MachineName}-{Environment.UserName}-{Name}";
 
     internal const ShareXBuild Build =
@@ -61,7 +62,7 @@ internal static class ApplicationInfo
             versionText.Append(version.Major).Append('.').Append(version.Minor);
             if (version.Build > 0 || version.Revision > 0) versionText.Append('.').Append(version.Build);
             if (version.Revision > 0) versionText.Append('.').Append(version.Revision);
-            if (Dev) versionText.Append(" Dev");
+            versionText.Append(" ").Append(Stamp);
             if (StartupOptions.Portable) versionText.Append(" Portable");
             return versionText.ToString();
         }
