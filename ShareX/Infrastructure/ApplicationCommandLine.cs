@@ -46,6 +46,8 @@ internal static class ApplicationCommandLine
 
     internal static bool IsCommandPresent(params string[] commands) => Initial.IsCommandExist(commands);
 
+    internal static string? GetParameterText(string command) => Initial.GetParameter(command);
+
     internal static bool TryHandleUninstall()
     {
         if (!IsCommandPresent("uninstall"))

@@ -2,7 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="ShareX.StartScreenWindow"
         Title="Welcome to ShareXg"
-        Width="420" Height="240"
+        Width="420" SizeToContent="Height"
         CanResize="False"
         SystemDecorations="BorderOnly"
         Background="#16181D"
@@ -19,10 +19,10 @@
                 <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="4">
                     <TextBlock Text="Welcome to ShareXg" FontSize="18" FontWeight="Bold" Foreground="#EDEFF3"/>
                     <TextBlock Text="A remix of ShareX (open source, GPL-3)" FontSize="12" Foreground="#A9AFBC"/>
-                    <HyperlinkButton Padding="0" Content="getsharex.com" NavigateUri="https://getsharex.com" Foreground="#3AD1E0"/>
+                    <HyperlinkButton Padding="0" FontSize="12" Content="getsharex.com" NavigateUri="https://getsharex.com" Foreground="#3AD1E0"/>
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <TextBlock Text="By" FontSize="12" Foreground="#A9AFBC" VerticalAlignment="Center"/>
-                        <HyperlinkButton Padding="0" Content="graysonchalmers.com" NavigateUri="https://graysonchalmers.com" Foreground="#3AD1E0"/>
+                        <HyperlinkButton Padding="0" FontSize="12" Content="graysonchalmers.com" NavigateUri="https://graysonchalmers.com" Foreground="#3AD1E0"/>
                     </StackPanel>
                     <TextBlock x:Name="ContactText" FontSize="12" Foreground="#A9AFBC"/>
                     <TextBlock x:Name="VersionStamp" FontSize="11" Foreground="#F2A33A" Margin="0,4,0,0"/>

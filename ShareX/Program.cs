@@ -122,6 +122,14 @@ internal static class Program
     {
         ImageEditorIntegration.Initialize();
 
+        // ShareXg proof harness: render the welcome dialog off-screen to a PNG and exit.
+        string? renderPath = ApplicationCommandLine.GetParameterText("RenderWelcome");
+        if (!string.IsNullOrEmpty(renderPath))
+        {
+            await StartScreenWindow.RenderToPngAsync(renderPath);
+            Environment.Exit(0);
+        }
+
         if (ApplicationState.Settings.ShowStartScreen && !StartupOptions.Sandbox)
         {
             DebugHelper.WriteLine("Start screen opening.");

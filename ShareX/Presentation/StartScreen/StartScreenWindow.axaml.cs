@@ -60,6 +60,27 @@ public partial class StartScreenWindow : Window
         Closed += OnClosed;
     }
 
+    // Proof shots: open the window far off-screen (never activated, no taskbar entry), render it, close it.
+    public static async Task RenderToPngAsync(string path)
+    {
+        StartScreenWindow window = new()
+        {
+            WindowStartupLocation = WindowStartupLocation.Manual,
+            Position = new PixelPoint(-20000, -20000),
+            ShowActivated = false,
+            ShowInTaskbar = false
+        };
+        window.Show();
+        await Task.Delay(1500);
+        DebugHelper.WriteLine($"RenderWelcome size {window.ClientSize} scaling {window.RenderScaling}");
+        PixelSize pixels = PixelSize.FromSize(window.ClientSize, 2);
+        using Avalonia.Media.Imaging.RenderTargetBitmap bitmap = new(pixels, new Vector(192, 192));
+        bitmap.Render(window);
+        Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
+        bitmap.Save(path);
+        window.Close();
+    }
+
     public Task ShowAsync()
     {
         TaskCompletionSource<bool> completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
