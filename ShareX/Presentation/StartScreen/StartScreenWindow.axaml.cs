@@ -41,8 +41,8 @@ namespace ShareX;
 
 public partial class StartScreenWindow : Window
 {
-    // TODO: replace with Grayson's contact email once he confirms it.
-    internal const string ContactEmail = "contact: (email coming soon)";
+    // Contact line on the welcome dialog.
+    internal const string ContactEmail = "grayson@graysonchalmers.com";
 
     private readonly AvaloniaBitmap _logoBitmap;
 
@@ -54,6 +54,7 @@ public partial class StartScreenWindow : Window
         _logoBitmap = new Avalonia.Media.Imaging.Bitmap(logoStream);
         LogoImage.Source = _logoBitmap;
         ContactText.Text = ContactEmail;
+        VersionStamp.Text = $"v{ApplicationInfo.VersionText}";
 
         Opened += (_, _) => Activate();
         Closed += OnClosed;

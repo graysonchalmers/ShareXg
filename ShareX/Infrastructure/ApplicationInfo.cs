@@ -34,7 +34,18 @@ namespace ShareX;
 internal static class ApplicationInfo
 {
     internal const string Name = "ShareXg";
-    internal const string Stamp = "🦊 GLINT · 2026-11-20";
+    internal const string Stamp = "🦊 GLINT";
+    internal static readonly string StampDate = System.IO.File.GetLastWriteTime(Environment.ProcessPath ?? AppContext.BaseDirectory).ToString("yyyy-MM-dd");
+    internal static readonly string ShortSha = GetShortSha();
+
+    private static string GetShortSha()
+    {
+        string? info = System.Reflection.Assembly.GetExecutingAssembly()
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            is [System.Reflection.AssemblyInformationalVersionAttribute a, ..] ? a.InformationalVersion : null;
+        int plus = info?.IndexOf('+') ?? -1;
+        return plus >= 0 && info!.Length > plus + 7 ? info.Substring(plus + 1, 7) : "local";
+    }
     internal const string MutexName = "6F3B2A1C-9D4E-4C7A-B8E2-5A1F0C3D7E9B";
     internal static readonly string PipeName = $"{Environment.MachineName}-{Environment.UserName}-{Name}";
 
@@ -62,7 +73,7 @@ internal static class ApplicationInfo
             versionText.Append(version.Major).Append('.').Append(version.Minor);
             if (version.Build > 0 || version.Revision > 0) versionText.Append('.').Append(version.Build);
             if (version.Revision > 0) versionText.Append('.').Append(version.Revision);
-            versionText.Append(" ").Append(Stamp);
+            versionText.Append(' ').Append(Stamp).Append(" · ").Append(ShortSha).Append(" · ").Append(StampDate);
             if (StartupOptions.Portable) versionText.Append(" Portable");
             return versionText.ToString();
         }
