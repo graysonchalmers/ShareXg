@@ -150,6 +150,17 @@ internal static class Program
         MainWindowIntegration.Initialize(hotkeyHost.TrayIconService, showMainWindow);
         SingleInstanceCommandRouter.MarkReady();
 
+        // ShareXg proof harness: render the main window and tray menu off-screen, then exit.
+        string? renderDir = ApplicationCommandLine.GetParameterText("RenderMain");
+        if (!string.IsNullOrEmpty(renderDir) && MainWindowIntegration.Instance is MainWindow mw)
+        {
+            System.IO.Directory.CreateDirectory(renderDir);
+            await ProofRender.RenderAsync(mw, System.IO.Path.Combine(renderDir, "main-window.png"));
+            Avalonia.Controls.Window menuWindow = new() { Content = mw.CreateTrayMenuPreview(), SizeToContent = Avalonia.Controls.SizeToContent.WidthAndHeight };
+            await ProofRender.RenderAsync(menuWindow, System.IO.Path.Combine(renderDir, "tray-menu.png"));
+            Environment.Exit(0);
+        }
+
         ShareX.Tools.MouseHighlighterManager.ActivateOnStartup(
             ApplicationState.DefaultTaskSettings.ToolsSettings.MouseHighlighterOptions);
 

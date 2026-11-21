@@ -1039,6 +1039,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }, DispatcherPriority.Background);
     }
 
+    // ShareXg proof harness: the tray menu items laid out in a panel so they can be rendered off-screen.
+    internal Control CreateTrayMenuPreview()
+    {
+        ContextMenu owner = new();
+        StackPanel panel = new() { Width = 260 };
+        foreach (Control item in BuildMenuControls(_trayMenuBuilder.BuildTrayMenu(), owner))
+        {
+            panel.Children.Add(item);
+        }
+        return new Border { Padding = new Thickness(4), Child = panel };
+    }
+
     private ContextMenu BuildContextMenu(IEnumerable<MainMenuEntry> entries)
     {
         ContextMenu menu = new();
