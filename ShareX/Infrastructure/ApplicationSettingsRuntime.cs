@@ -85,7 +85,7 @@ internal static class ApplicationSettingsRuntime
         _hotkeyHost?.ApplyHotkeySettings();
         _hotkeyHost?.UpdateTrayIcon();
 
-        ApplicationState.UpdateManager.AllowAutoUpdate = !SystemOptions.DisableUpdateCheck && settings.AutoCheckUpdate;
+        ApplicationState.UpdateManager.AllowAutoUpdate = false; // ShareXg: no stock update or what's-new prompts
         ApplicationState.UpdateManager.UpdateChannel = settings.UpdateChannel;
         ApplicationState.UpdateManager.ConfigureAutoUpdate();
 

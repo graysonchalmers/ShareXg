@@ -41,51 +41,22 @@ namespace ShareX;
 
 public partial class StartScreenWindow : Window
 {
-    private readonly StartScreenViewModel _viewModel;
+    // TODO: replace with Grayson's contact email once he confirms it.
+    internal const string ContactEmail = "contact: (email coming soon)";
+
     private readonly AvaloniaBitmap _logoBitmap;
 
     public StartScreenWindow()
     {
         InitializeComponent();
-        RequestedThemeVariant = ThemeManager.GetCurrentTheme();
 
-        using DrawingBitmap logo = ShareXResources.Logo;
-        using Stream logoStream = logo.GetStream();
-        logoStream.Position = 0;
-        _logoBitmap = new AvaloniaBitmap(logoStream);
+        using Stream logoStream = new MemoryStream(ShareXResources.IconBytes);
+        _logoBitmap = new Avalonia.Media.Imaging.Bitmap(logoStream);
         LogoImage.Source = _logoBitmap;
+        ContactText.Text = ContactEmail;
 
-        _viewModel = new StartScreenViewModel();
-        DataContext = _viewModel;
-
-        Opened += (_, _) =>
-        {
-            FitToWorkingArea();
-            Activate();
-        };
-        ThemeManager.ThemeChanged += OnThemeChanged;
+        Opened += (_, _) => Activate();
         Closed += OnClosed;
-    }
-
-    // The window sizes to its content and cannot be resized, so on a short screen (such as 1080p at 150%) cap it
-    // to the working area; the content then scrolls above the footer.
-    private void FitToWorkingArea()
-    {
-        Screen? screen = Screens.ScreenFromWindow(this) ?? Screens.Primary;
-
-        if (screen == null)
-        {
-            return;
-        }
-
-        double frameHeight = FrameSize is Size frame ? frame.Height - ClientSize.Height : 0;
-        double available = screen.WorkingArea.Height / screen.Scaling - frameHeight;
-
-        if (ClientSize.Height > available)
-        {
-            MaxHeight = available;
-            Position = new PixelPoint(Position.X, screen.WorkingArea.Y);
-        }
     }
 
     public Task ShowAsync()
@@ -96,17 +67,14 @@ public partial class StartScreenWindow : Window
         return completion.Task;
     }
 
-    private void OnThemeChanged(object? sender, Avalonia.Styling.ThemeVariant theme) =>
-        Avalonia.Threading.Dispatcher.UIThread.Post(() => RequestedThemeVariant = theme);
+    private void OnTitlePointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e) => BeginMoveDrag(e);
 
     private void OnGetStartedClick(object? sender, RoutedEventArgs e) => Close();
 
     private void OnClosed(object? sender, EventArgs e)
     {
-        ThemeManager.ThemeChanged -= OnThemeChanged;
         _logoBitmap.Dispose();
         ApplicationState.Settings.ShowStartScreen = false;
-        // The start screen has its own icon pack choice, so the update prompt is not needed.
         ApplicationState.Settings.ShowIconPackPrompt = false;
         SettingManager.SaveApplicationConfigAsync();
     }
