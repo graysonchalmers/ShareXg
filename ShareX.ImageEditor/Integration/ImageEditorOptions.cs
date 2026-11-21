@@ -104,7 +104,7 @@ namespace ShareX.ImageEditor.Integration
 
         public int Thickness { get; set; } = 4;
         public int CornerRadius { get; set; } = 4;
-        public bool Shadow { get; set; } = false;
+        public bool Shadow { get; set; } = true; // ShareXg: drop shadow on by default
         public string ShadowColorHex { get; set; } = Annotation.DefaultShadowColorHex;
         [JsonIgnore]
         public Color ShadowColor { get => HexToColor(ShadowColorHex); set => ShadowColorHex = ColorToHex(value); }

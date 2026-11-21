@@ -78,9 +78,9 @@ public sealed class ToolbarCustomizationItemViewModel : ViewModelBase
         CreateToolDefinition(EditorTool.Spotlight, Strings.ToolbarCustomizationItemViewModel_Spotlight, EditorIcons.ToolSpotlight, "S"),
         CreateToolDefinition(EditorTool.Crop, Strings.ToolbarCustomizationItemViewModel_Crop, EditorIcons.ToolCrop, "C", beginGroupByDefault: true),
         CreateToolDefinition(EditorTool.CutOut, Strings.ToolbarCustomizationItemViewModel_CutOut, EditorIcons.ToolCutOut, "U"),
-        new ToolbarItemDefinition(CanvasSizeItemId, null, Strings.ToolbarCustomizationItemViewModel_CanvasSize, EditorIcons.ToolCanvasSize, "X", true, true, false),
-        new ToolbarItemDefinition(BackgroundItemId, null, Strings.ToolbarCustomizationItemViewModel_Background, EditorIcons.PanelBackground, "", true, true, false),
-        new ToolbarItemDefinition(ImageEffectsItemId, null, Strings.ToolbarCustomizationItemViewModel_ImageEffects, EditorIcons.PanelEffects, "", true, true, false)
+        new ToolbarItemDefinition(CanvasSizeItemId, null, Strings.ToolbarCustomizationItemViewModel_CanvasSize, EditorIcons.ToolCanvasSize, "X", true, true, false, IsVisibleByDefault: false),
+        new ToolbarItemDefinition(BackgroundItemId, null, Strings.ToolbarCustomizationItemViewModel_Background, EditorIcons.PanelBackground, "", true, true, false, IsVisibleByDefault: false),
+        new ToolbarItemDefinition(ImageEffectsItemId, null, Strings.ToolbarCustomizationItemViewModel_ImageEffects, EditorIcons.PanelEffects, "", true, true, false, IsVisibleByDefault: false)
     };
 
     private static readonly IReadOnlyDictionary<string, ToolbarItemDefinition> ItemDefinitionsById =
@@ -404,6 +404,12 @@ public sealed class ToolbarCustomizationItemViewModel : ViewModelBase
         string defaultSecondaryHotkey = "",
         bool beginGroupByDefault = false)
     {
-        return new ToolbarItemDefinition(tool.ToString(), tool, name, icon, defaultHotkey, true, true, beginGroupByDefault, defaultSecondaryHotkey);
+        return new ToolbarItemDefinition(tool.ToString(), tool, name, icon, defaultHotkey, true, true, beginGroupByDefault, defaultSecondaryHotkey,
+            IsVisibleByDefault: IsSlimTool(tool));
     }
+
+    // ShareXg: the slim toolbar. Every other tool starts hidden and sits under the More button.
+    // A pattern, not a static field: ItemDefinitions is built during static init, before later fields exist.
+    private static bool IsSlimTool(EditorTool tool) => tool is EditorTool.Select or EditorTool.Rectangle or EditorTool.Ellipse
+        or EditorTool.Arrow or EditorTool.Freehand or EditorTool.Text or EditorTool.Blur or EditorTool.Step;
 }

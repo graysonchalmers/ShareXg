@@ -290,6 +290,12 @@ public partial class AnnotationToolbar : UserControl
         }
     }
 
+    private void OnMoreToolClick(object? sender, RoutedEventArgs e)
+    {
+        this.FindControl<Button>("MoreToolsButton")?.Flyout?.Hide();
+        OnToolbarItemClick(sender, e);
+    }
+
     private void OnUndoClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is IAnnotationToolbarAdapter toolbar)

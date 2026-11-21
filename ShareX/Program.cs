@@ -130,6 +130,40 @@ internal static class Program
             Environment.Exit(0);
         }
 
+        // ShareXg proof harness: render the markup editor (fresh default options) and its More list off-screen.
+        string? editorDir = ApplicationCommandLine.GetParameterText("RenderEditor");
+        if (!string.IsNullOrEmpty(editorDir))
+        {
+            System.IO.Directory.CreateDirectory(editorDir);
+            string log = System.IO.Path.Combine(editorDir, "render-log.txt");
+            void Crumb(string m) => System.IO.File.AppendAllText(log, DateTime.Now.ToString("HH:mm:ss ") + m + Environment.NewLine);
+            _ = Task.Run(async () => { await Task.Delay(45000); Crumb("watchdog kill"); Environment.Exit(3); });
+            try
+            {
+            ShareX.ImageEditor.Integration.ImageEditorOptions editorOptions = new() { RememberWindowState = false, AutoSizeWindow = false, ShowExitConfirmation = false };
+            Crumb("options");
+            ShareX.ImageEditor.Presentation.Views.EditorWindow editor = new(editorOptions) { Width = 1100, Height = 640 };
+            using SkiaSharp.SKBitmap sample = new(900, 480);
+            using (SkiaSharp.SKCanvas canvas = new(sample)) { canvas.Clear(new SkiaSharp.SKColor(60, 70, 90)); }
+            Crumb("ctor");
+            editor.LoadImage(sample);
+            Crumb("loaded");
+            await ProofRender.RenderAsync(editor, System.IO.Path.Combine(editorDir, "editor.png"));
+            if (editor.DataContext is ShareX.ImageEditor.Presentation.ViewModels.MainViewModel vm)
+            {
+                Avalonia.Controls.StackPanel list = new() { Margin = new Avalonia.Thickness(12), Spacing = 4 };
+                list.Children.Add(new Avalonia.Controls.TextBlock { Text = "More ▾", FontWeight = Avalonia.Media.FontWeight.Bold });
+                foreach (var item in vm.HiddenToolbarItems) list.Children.Add(new Avalonia.Controls.TextBlock { Text = "  " + item.Name });
+                list.Children.Add(new Avalonia.Controls.TextBlock { Text = $"Shadow default: {(editorOptions.Shadow ? "ON" : "off")}" });
+                Avalonia.Controls.Window moreWindow = new() { Content = list, SizeToContent = Avalonia.Controls.SizeToContent.WidthAndHeight };
+                await ProofRender.RenderAsync(moreWindow, System.IO.Path.Combine(editorDir, "editor-more.png"));
+            }
+            Crumb("done");
+            }
+            catch (Exception ex) { Crumb("error " + ex); }
+            Environment.Exit(0);
+        }
+
         if (ApplicationState.Settings.ShowStartScreen && !StartupOptions.Sandbox)
         {
             DebugHelper.WriteLine("Start screen opening.");

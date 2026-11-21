@@ -229,7 +229,7 @@ namespace ShareX
             string tempPath = "";
             bool abortRequested = false;
 
-            float duration = taskSettings.CaptureSettings.ScreenRecordFixedDuration ? taskSettings.CaptureSettings.ScreenRecordDuration : 0;
+            float duration = RecordCapSeconds(taskSettings, isGif);
 
             recordForm = new ScreenRecordWindow(captureRectangle)
             {
@@ -476,6 +476,15 @@ namespace ShareX
             });
         }
 
+        // ShareXg caps: a fixed duration set by the user wins; otherwise GIFs stop at 15 s and clips at 30 s.
+        internal const float GifCapSeconds = 15f, ClipCapSeconds = 30f;
+
+        internal static float RecordCapSeconds(TaskSettings settings, bool isGif)
+        {
+            return settings.CaptureSettings.ScreenRecordFixedDuration ? settings.CaptureSettings.ScreenRecordDuration
+                : isGif ? GifCapSeconds : ClipCapSeconds;
+        }
+
         private static async Task<bool> RecordNativeAsync(string path, IntPtr captureWindow, TaskSettings settings, bool replaceExisting, bool isGif)
         {
             // HandleExistsFile has already applied the user's overwrite policy. Commit a completed
@@ -508,7 +517,7 @@ namespace ShareX
                     RequireHardwareEncoder = settings.CaptureSettings.ScreenRecordRequireHardwareEncoder,
                     IncludeCursor = settings.CaptureSettings.ScreenRecordShowCursor,
                     HdrToneMapping = settings.CaptureSettings.ScreenRecordHDRToneMapping,
-                    Duration = settings.CaptureSettings.ScreenRecordFixedDuration ? TimeSpan.FromSeconds(settings.CaptureSettings.ScreenRecordDuration) : TimeSpan.Zero
+                    Duration = TimeSpan.FromSeconds(RecordCapSeconds(settings, isGif))
                 };
                 nativeRecorder = CreateNativeRecorder(options);
                 try

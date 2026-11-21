@@ -394,6 +394,8 @@ public sealed class EditorToolbarAdapter : IAnnotationToolbarAdapter, IDisposabl
 
     public ReadOnlyObservableCollection<ToolbarCustomizationItemViewModel> ToolbarItems => _viewModel.ToolbarItems;
     public ReadOnlyObservableCollection<ToolbarCustomizationItemViewModel> VisibleToolbarItems => _viewModel.VisibleToolbarItems;
+    public ReadOnlyObservableCollection<ToolbarCustomizationItemViewModel> HiddenToolbarItems => _viewModel.HiddenToolbarItems;
+    public bool HasHiddenToolbarItems => _viewModel.HasHiddenToolbarItems;
 
     public bool HasRecentImageFiles => _viewModel.HasRecentImageFiles;
 

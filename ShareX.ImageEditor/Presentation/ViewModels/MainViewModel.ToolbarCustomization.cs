@@ -42,6 +42,10 @@ namespace ShareX.ImageEditor.Presentation.ViewModels
 
         public ReadOnlyObservableCollection<ToolbarCustomizationItemViewModel> ToolbarItems { get; private set; } = null!;
         public ReadOnlyObservableCollection<ToolbarCustomizationItemViewModel> VisibleToolbarItems { get; private set; } = null!;
+        // ShareXg: hidden tools, shown under the toolbar's More button.
+        private readonly ObservableCollection<ToolbarCustomizationItemViewModel> _hiddenToolbarItems = new();
+        public ReadOnlyObservableCollection<ToolbarCustomizationItemViewModel> HiddenToolbarItems { get; private set; } = null!;
+        public bool HasHiddenToolbarItems => _hiddenToolbarItems.Count > 0;
         public event EventHandler? FileMenuRequested;
         /// <summary>Raised when the canvas size tool button (or its hotkey) is used.</summary>
         public event EventHandler? CanvasSizeModeRequested;
@@ -67,6 +71,7 @@ namespace ShareX.ImageEditor.Presentation.ViewModels
         {
             ToolbarItems = new ReadOnlyObservableCollection<ToolbarCustomizationItemViewModel>(_toolbarItems);
             VisibleToolbarItems = new ReadOnlyObservableCollection<ToolbarCustomizationItemViewModel>(_visibleToolbarItems);
+            HiddenToolbarItems = new ReadOnlyObservableCollection<ToolbarCustomizationItemViewModel>(_hiddenToolbarItems);
             ApplyToolbarCustomizationItems(
                 ToolbarCustomizationItemViewModel.CreateFromOptions(Options.ToolbarItems),
                 persist: Options.ToolbarItems.Count == 0);
@@ -221,10 +226,14 @@ namespace ShareX.ImageEditor.Presentation.ViewModels
         {
             _visibleToolbarItems.Clear();
 
-            foreach (ToolbarCustomizationItemViewModel item in _toolbarItems.Where(item => item.IsVisible))
+            _hiddenToolbarItems.Clear();
+
+            foreach (ToolbarCustomizationItemViewModel item in _toolbarItems)
             {
-                _visibleToolbarItems.Add(item);
+                (item.IsVisible ? _visibleToolbarItems : _hiddenToolbarItems).Add(item);
             }
+
+            OnPropertyChanged(nameof(HasHiddenToolbarItems));
         }
 
         partial void OnIsEffectsPanelOpenChanged(bool value)

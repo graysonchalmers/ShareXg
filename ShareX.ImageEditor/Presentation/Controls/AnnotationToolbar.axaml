@@ -255,6 +255,37 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
 
+                    <!-- ShareXg: More holds every tool hidden from the slim toolbar. -->
+                    <Button x:Name="MoreToolsButton" Width="72"
+                            Classes="toolbar-button"
+                            IsVisible="{ReflectionBinding HasHiddenToolbarItems}"
+                            ToolTip.Tip="More tools: everything not on the slim toolbar"
+                            AutomationProperties.Name="More tools">
+                        <TextBlock Text="More ▾" FontSize="12" VerticalAlignment="Center" Margin="4,0"/>
+                        <Button.Flyout>
+                            <Flyout Placement="BottomEdgeAlignedLeft" VerticalOffset="4">
+                                <ItemsControl ItemsSource="{ReflectionBinding HiddenToolbarItems}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ToolbarCustomizationItemViewModel">
+                                            <Button Classes="toolbar-button"
+                                                    Tag="{Binding}"
+                                                    HorizontalAlignment="Stretch"
+                                                    HorizontalContentAlignment="Left"
+                                                    Click="OnMoreToolClick"
+                                                    ToolTip.Tip="{Binding ToolTip}"
+                                                    AutomationProperties.Name="{Binding ToolTip}">
+                                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                                    <iconControls:IconPresenter Icon="{Binding Icon}"/>
+                                                    <TextBlock Text="{Binding Name}" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
+
                     <StackPanel Classes="toolbar-row"
                                 IsVisible="{Binding ShowEditingActions, ElementName=AnnotationToolbarRoot}">
                         <Border Classes="toolbar-separator"/>
