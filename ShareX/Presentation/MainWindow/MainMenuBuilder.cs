@@ -50,33 +50,18 @@ internal sealed class MainMenuBuilder
         _trayMenu = trayMenu;
     }
 
+    // ShareXg: slim sidebar matching the tray. The full ShareX menu lives under "More".
     public IReadOnlyList<MainNavigationSection> BuildNavigation()
     {
-        bool uploadsEnabled = !SystemOptions.DisableUpload;
-
         return new List<MainNavigationSection>
         {
-            new(Strings.MainMenuBuilder_Capture, AppIcons.Camera, BuildCaptureMenu),
-            new(Strings.MainMenuBuilder_Upload, AppIcons.Upload, BuildUploadMenu, uploadsEnabled),
-            new(Strings.MainMenuBuilder_Workflows, AppIcons.Workflows, BuildWorkflowsMenu),
-            new(Strings.MainMenuBuilder_Tools, AppIcons.Wrench, BuildToolsMenu,
-                createCategories: BuildToolCategories),
-            new(Strings.MainMenuBuilder_AfterCaptureTasks, AppIcons.AfterCaptureTasks, BuildAfterCaptureMenu),
-            new(Strings.MainMenuBuilder_AfterUploadTasks, AppIcons.AfterUploadTasks, BuildAfterUploadMenu, uploadsEnabled),
-            new(Strings.MainMenuBuilder_Destinations, AppIcons.Destinations, BuildDestinationsMenu, uploadsEnabled),
-            new(Strings.MainMenuBuilder_ApplicationSettings, AppIcons.Settings, () => Run(MainFormCommand.ApplicationSettings)),
-            new(Strings.MainMenuBuilder_TaskSettings, AppIcons.Sliders, () => Run(MainFormCommand.TaskSettings)),
-            new(Strings.MainMenuBuilder_HotkeySettings, AppIcons.Keyboard, () => Run(MainFormCommand.HotkeySettings)),
-            new(Strings.MainMenuBuilder_DestinationSettings, AppIcons.DestinationSettings, () => Run(MainFormCommand.DestinationSettings), uploadsEnabled),
-            new(Strings.MainMenuBuilder_CustomUploaderSettings, AppIcons.CustomUploaderSettings, () => Run(MainFormCommand.CustomUploaderSettings), uploadsEnabled),
+            new("Screenshot", AppIcons.Region, () => new CaptureRegion().Capture(true)),
+            new("Markup", AppIcons.ImageEditor, () => TaskHelpers.OpenImageEditor()),
+            new("Record GIF", AppIcons.Film, () => TaskHelpers.StartScreenRecording(ScreenRecordOutput.GIF, ScreenRecordStartMethod.Region)),
+            new("Record clip", AppIcons.ScreenRecording, () => TaskHelpers.StartScreenRecording(ScreenRecordOutput.FFmpeg, ScreenRecordStartMethod.Region)),
             new(Strings.MainMenuBuilder_ScreenshotsFolder, AppIcons.ScreenshotsFolder, () => Run(MainFormCommand.ScreenshotsFolder)),
-            new(Strings.MainMenuBuilder_History, AppIcons.History, () => Run(MainFormCommand.History)),
-            new(Strings.MainMenuBuilder_ImageHistory, AppIcons.ImageHistory, () => Run(MainFormCommand.ImageHistory)),
-            new(Strings.MainMenuBuilder_Stats, AppIcons.BarChart, () => Run(MainFormCommand.Stats)),
-            new(Strings.MainMenuBuilder_Debug, AppIcons.Bug, BuildDebugMenu),
-            new(Strings.MainMenuBuilder_Donate, AppIcons.Heart, () => Run(MainFormCommand.Donate)),
-            new(Strings.MainMenuBuilder_FollowShareX, AppIcons.Follow, () => Run(MainFormCommand.X)),
-            new(Strings.MainMenuBuilder_Discord, AppIcons.Discord, () => Run(MainFormCommand.Discord)),
+            new("Settings", AppIcons.Settings, () => Run(MainFormCommand.ApplicationSettings)),
+            new("More", AppIcons.Wrench, BuildFullTrayMenu),
             new(Strings.MainMenuBuilder_About, AppIcons.Info, () => Run(MainFormCommand.About))
         };
     }
