@@ -39,7 +39,7 @@ Run with `ShareX.exe -multi -sandbox -silent -NoHotkeys`:
 
 ## Open
 - North Star ⚠️ items above.
-- No live GIF/clip recording on the real build yet. Do one supervised run.
+- Live recording verified 2026-11-22 (build 35c4ba0): GIF capped at 15 s (196 frames, 0.65 MB), clip capped at 30 s (900 frames, NVIDIA H.264, 22.5 MB). Follow-up: after a clip, something calls `SkiaImageHelpers.LoadImage` on the .mp4 and logs two InvalidDataExceptions (harmless, noisy).
 - Upstream PR candidates (each needs Grayson's OK): UIA panel snapping (#8862), per-monitor DPI heal (#9175, #9046). Remove debug-only logging from any upstream PR.
 
 ## Rules
