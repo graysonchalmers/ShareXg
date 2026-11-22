@@ -101,9 +101,12 @@ namespace ShareX.ScreenCaptureLib
             // ShareXg: snap to panels inside the top few windows via UI Automation (Electron apps have no child HWNDs).
             if (IncludeChildWindows)
             {
-                foreach (SimpleWindowInfo top in result.Where(w => w.IsWindow).Take(3).ToList())
+                // The window under the cursor first: that is the one the user is about to capture.
+                // The topmost window under the cursor first (the overlay itself is already ignored): that is what the user is about to capture.
+                Point cursor = UiaRegionScanner.CursorPosition();
+                foreach (SimpleWindowInfo top in result.Where(w => w.IsWindow).OrderByDescending(w => w.Rectangle.Contains(cursor)).Take(2).ToList())
                 {
-                    List<Rectangle> panels = UiaRegionScanner.GetPanels(top.Handle, top.Rectangle, 400);
+                    List<Rectangle> panels = UiaRegionScanner.GetPanels(top.Handle, top.Rectangle, 800);
                     int index = result.IndexOf(top);
                     result.InsertRange(index, panels.Select(rc => new SimpleWindowInfo(top.Handle, rc)));
                 }

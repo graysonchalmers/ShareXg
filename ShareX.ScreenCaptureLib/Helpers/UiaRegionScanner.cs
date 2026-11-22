@@ -23,6 +23,10 @@ namespace ShareX.ScreenCaptureLib
             ControlType.Edit, ControlType.Image, ControlType.MenuBar, ControlType.StatusBar, ControlType.Window
         };
 
+        [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool GetCursorPos(out Point p);
+
+        public static Point CursorPosition() => GetCursorPos(out Point p) ? p : Point.Empty;
+
         public static List<Rectangle> GetPanels(IntPtr hwnd, Rectangle windowRect, int budgetMs)
         {
             List<Rectangle> found = new();

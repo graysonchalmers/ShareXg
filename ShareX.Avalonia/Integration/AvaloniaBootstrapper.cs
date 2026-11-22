@@ -166,6 +166,13 @@ public static class AvaloniaBootstrapper
             .UsePlatformDetect()
             .WithInterFont();
 
+        // ShareXg: software rendering avoids garbled overlays when one window spans monitors driven by different GPUs
+        // (hybrid laptops). On when %LOCALAPPDATA%\ShareXg\software-render exists.
+        if (System.IO.File.Exists(System.IO.Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.LocalApplicationData), "ShareXg", "software-render")))
+        {
+            builder = builder.With(new Win32PlatformOptions { RenderingMode = new[] { Win32RenderingMode.Software } });
+        }
+
 #if DEBUG
         builder = builder.LogToTrace();
 #endif
