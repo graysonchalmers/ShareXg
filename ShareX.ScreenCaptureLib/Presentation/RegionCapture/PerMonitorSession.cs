@@ -102,12 +102,27 @@ public sealed class PerMonitorSession : IDisposable
     private static readonly string LogPath = System.IO.Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ShareXg", "span-log.txt");
 
-    /// <summary>ShareXg debug: drag trace, only written while the span-log.txt file exists.</summary>
+    private const long LogMaxBytes = 1024 * 1024;
+    private static long _logNextCheck;
+    private static bool _logEnabled;
+
+    /// <summary>
+    /// ShareXg debug: drag trace, only written while the span-log.txt file exists and is under 1 MB.
+    /// The file is checked about once a second, not on every 15 ms tick.
+    /// </summary>
     internal static void Log(string line)
     {
         try
         {
-            if (System.IO.File.Exists(LogPath))
+            long now = Environment.TickCount64;
+            if (now >= _logNextCheck)
+            {
+                System.IO.FileInfo file = new(LogPath);
+                _logEnabled = file.Exists && file.Length < LogMaxBytes;
+                _logNextCheck = now + 1000;
+            }
+
+            if (_logEnabled)
             {
                 System.IO.File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff} {line}{Environment.NewLine}");
             }

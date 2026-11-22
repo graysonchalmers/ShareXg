@@ -2030,7 +2030,7 @@ Please select a different hotkey or quit the conflicting application and reopen 
     <value>Share selected URL</value>
   </data>
   <data name="MainWindow_ShareXHotkeys" xml:space="preserve">
-    <value>ShareX hotkeys</value>
+    <value>ShareXg hotkeys</value>
   </data>
   <data name="MainWindow_ShortenSelectedUrl" xml:space="preserve">
     <value>Shorten selected URL</value>

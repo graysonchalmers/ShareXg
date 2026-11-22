@@ -119,6 +119,9 @@ public partial class ScreenRecordWindow : Window, IDisposable
     }
 
     public float Duration { get; set; }
+    // ShareXg: short text under the timer naming the stop gesture; set by the recording manager.
+    public string? StopHint { get; set; }
+    private bool _capActive;
     public bool AskConfirmationOnAbort { get; set; }
     public bool IsDisposed => _disposed;
 
@@ -321,6 +324,7 @@ public partial class ScreenRecordWindow : Window, IDisposable
         Status = ScreenRecordingStatus.Waiting;
         Timer.Reset();
         IsCountdown = false;
+        _capActive = false;
         StopRecordingTimer();
         UpdateUI();
 
@@ -338,6 +342,7 @@ public partial class ScreenRecordWindow : Window, IDisposable
 
     public void StartCountdown(int milliseconds)
     {
+        _capActive = false;
         IsCountdown = true;
         Countdown = TimeSpan.FromMilliseconds(milliseconds);
         Timer.Start();
@@ -353,6 +358,7 @@ public partial class ScreenRecordWindow : Window, IDisposable
             IsCountdown = false;
         }
 
+        _capActive = Duration > 0;
         if (Duration > 0)
         {
             IsCountdown = true;
@@ -492,6 +498,21 @@ public partial class ScreenRecordWindow : Window, IDisposable
             return;
         }
 
+        // ShareXg: while a capped recording runs, show elapsed / cap and the stop gesture.
+        StopHintText.IsVisible = !string.IsNullOrEmpty(StopHint) && Status is ScreenRecordingStatus.Recording or ScreenRecordingStatus.Paused or ScreenRecordingStatus.Working;
+        if (_capActive)
+        {
+            TimeSpan cap = TimeSpan.FromSeconds(Duration);
+            TimeSpan elapsed = Timer.Elapsed < cap ? Timer.Elapsed : cap;
+            TimerText.Text = $"{FormatClock(elapsed)} / {FormatClock(cap)}";
+            StopHintText.Text = elapsed >= cap ? "Cap reached, stopping" : StopHint;
+            StopHintText.IsVisible = true;
+            ToolTip.SetTip(TimerDragHandle, $"Recording stops by itself at {FormatClock(cap)}. To stop sooner, click Stop or press the record hotkey again.");
+            return;
+        }
+
+        StopHintText.Text = StopHint;
+
         TimeSpan value;
         if (IsCountdown)
         {
@@ -508,6 +529,8 @@ public partial class ScreenRecordWindow : Window, IDisposable
 
         TimerText.Text = value.ToString("mm\\:ss\\:ff");
     }
+
+    private static string FormatClock(TimeSpan t) => $"{(int)t.TotalMinutes}:{t.Seconds:00}";
 
     private void UpdateUI()
     {

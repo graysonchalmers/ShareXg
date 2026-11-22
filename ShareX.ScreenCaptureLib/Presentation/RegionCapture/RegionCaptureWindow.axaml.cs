@@ -2575,7 +2575,7 @@ public partial class RegionCaptureWindow : Window
             return;
         }
 
-        PerMonitorSession.Log($"cancel mon={_request?.ScreenBounds} {Environment.StackTrace.Replace(Environment.NewLine, " | ")}");
+        PerMonitorSession.Log($"cancel mon={_request?.ScreenBounds}");
         _closing = true;
         _pendingResult = null;
         Close();

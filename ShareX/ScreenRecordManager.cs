@@ -235,6 +235,7 @@ namespace ShareX
             {
                 ActivateWindow = startMethod == ScreenRecordStartMethod.Region,
                 Duration = duration,
+                StopHint = BuildStopHint(isGif),
                 AskConfirmationOnAbort = taskSettings.CaptureSettings.ScreenRecordAskConfirmationOnAbort,
                 ShowRecordingTimer = taskSettings.CaptureSettings.ScreenRecordShowTimer,
                 ShowRecordingButtonLabels = taskSettings.CaptureSettings.ScreenRecordShowButtonLabels
@@ -478,6 +479,32 @@ namespace ShareX
 
         // ShareXg caps: a fixed duration set by the user wins; otherwise GIFs stop at 15 s and clips at 30 s.
         internal const float GifCapSeconds = 15f, ClipCapSeconds = 30f;
+
+        // ShareXg: short on-screen hint naming the live stop hotkey (any recording hotkey toggles, StopScreenRecording only stops).
+        private static string BuildStopHint(bool isGif)
+        {
+            HotkeyType[] order = isGif
+                ? new[] { HotkeyType.StopScreenRecording, HotkeyType.ScreenRecorderGIF, HotkeyType.ScreenRecorderGIFActiveWindow, HotkeyType.ScreenRecorderGIFCustomRegion, HotkeyType.StartScreenRecorderGIF, HotkeyType.ScreenRecorder, HotkeyType.ScreenRecorderActiveWindow, HotkeyType.ScreenRecorderCustomRegion, HotkeyType.StartScreenRecorder }
+                : new[] { HotkeyType.StopScreenRecording, HotkeyType.ScreenRecorder, HotkeyType.ScreenRecorderActiveWindow, HotkeyType.ScreenRecorderCustomRegion, HotkeyType.StartScreenRecorder, HotkeyType.ScreenRecorderGIF, HotkeyType.ScreenRecorderGIFActiveWindow, HotkeyType.ScreenRecorderGIFCustomRegion, HotkeyType.StartScreenRecorderGIF };
+
+            var hotkeys = ApplicationState.HotkeysConfigOrNull?.Hotkeys;
+            if (hotkeys != null)
+            {
+                foreach (HotkeyType job in order)
+                {
+                    foreach (HotkeySettings hotkey in hotkeys)
+                    {
+                        if (hotkey.TaskSettings != null && hotkey.TaskSettings.Job == job && hotkey.HotkeyInfo != null && hotkey.HotkeyInfo.IsValidHotkey)
+                        {
+                            string keys = hotkey.HotkeyInfo.ToString().Replace(" + ", "+").Replace("PrintScreen", "PrtSc");
+                            return keys.Length <= 11 ? "Stop: " + keys : keys;
+                        }
+                    }
+                }
+            }
+
+            return "Stop: Stop button";
+        }
 
         internal static float RecordCapSeconds(TaskSettings settings, bool isGif)
         {

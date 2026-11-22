@@ -62,10 +62,13 @@ namespace ShareX
 
         // ShareXg: Windows' Snipping Tool grabs PrtSc with its own low-level hook, which a registry change alone
         // doesn't stop until sign-out. A low-level hook installed later runs first, so we catch PrtSc here, fire the
-        // matching ShareXg hotkey, and swallow the key. Unhooked automatically when the process exits.
+        // matching ShareXg hotkey, and swallow the key. Windows silently drops a low-level hook whose callback times out,
+        // so the hook is re-installed on unlock, on resume and every 10 minutes; one hook per process, removed on exit.
         private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
-        private static LowLevelKeyboardProc printScreenProc;
+        private static LowLevelKeyboardProc printScreenProc; // referenced here so the callback is never collected
         private static IntPtr printScreenHook;
+        private static Avalonia.Threading.DispatcherTimer printScreenTimer;
+        private static bool printScreenDown; // a PrtSc key-down was acted on and its key-up has not arrived yet
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
@@ -76,32 +79,127 @@ namespace ShareX
         [DllImport("kernel32.dll")]
         private static extern IntPtr GetModuleHandle(string lpModuleName);
 
+        // Runs on the UI thread, which owns the hook and pumps its callbacks.
         private void InstallPrintScreenHook()
         {
+            RemovePrintScreenHook(); // ShareXg: never two hooks, even if a second manager is created
             printScreenProc = PrintScreenHookProc;
+            RefreshPrintScreenHook();
+
+            if (printScreenHook != IntPtr.Zero)
+            {
+                DebugHelper.WriteLine("PrintScreen hook installed.");
+            }
+
+            Microsoft.Win32.SystemEvents.SessionSwitch += OnSessionSwitch;
+            Microsoft.Win32.SystemEvents.PowerModeChanged += OnPowerModeChanged;
+            printScreenTimer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMinutes(10) };
+            printScreenTimer.Tick += (sender, e) => RefreshPrintScreenHook();
+            printScreenTimer.Start();
+        }
+
+        // ShareXg: unhook and hook again; also puts ShareXg back in front of a hook Snipping Tool installed later.
+        private static void RefreshPrintScreenHook()
+        {
+            if (printScreenProc == null)
+            {
+                return; // removed while a refresh was queued
+            }
+
+            if (printScreenHook != IntPtr.Zero)
+            {
+                NativeMethods.UnhookWindowsHookEx(printScreenHook);
+            }
+
+            printScreenDown = false; // a key-up may have been missed while the hook was gone
             printScreenHook = SetWindowsHookEx(13 /* WH_KEYBOARD_LL */, printScreenProc, GetModuleHandle(null), 0);
-            DebugHelper.WriteLine("PrintScreen hook " + (printScreenHook != IntPtr.Zero ? "installed." : "failed: " + Marshal.GetLastWin32Error()));
+
+            if (printScreenHook == IntPtr.Zero)
+            {
+                DebugHelper.WriteLine("PrintScreen hook failed: " + Marshal.GetLastWin32Error());
+            }
+        }
+
+        private static void RemovePrintScreenHook()
+        {
+            Microsoft.Win32.SystemEvents.SessionSwitch -= OnSessionSwitch;
+            Microsoft.Win32.SystemEvents.PowerModeChanged -= OnPowerModeChanged;
+
+            if (printScreenTimer != null)
+            {
+                printScreenTimer.Stop();
+                printScreenTimer = null;
+            }
+
+            if (printScreenHook != IntPtr.Zero)
+            {
+                NativeMethods.UnhookWindowsHookEx(printScreenHook);
+                printScreenHook = IntPtr.Zero;
+            }
+
+            printScreenProc = null;
+        }
+
+        private static void OnSessionSwitch(object sender, Microsoft.Win32.SessionSwitchEventArgs e)
+        {
+            if (e.Reason == Microsoft.Win32.SessionSwitchReason.SessionUnlock)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshPrintScreenHook());
+            }
+        }
+
+        private static void OnPowerModeChanged(object sender, Microsoft.Win32.PowerModeChangedEventArgs e)
+        {
+            if (e.Mode == Microsoft.Win32.PowerModes.Resume)
+            {
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => RefreshPrintScreenHook());
+            }
         }
 
         private IntPtr PrintScreenHookProc(int nCode, IntPtr wParam, IntPtr lParam)
         {
-            if (nCode >= 0 && Marshal.ReadInt32(lParam) == 0x2C /* VK_SNAPSHOT */ && Hotkeys != null && !IgnoreHotkeys)
+            if (nCode >= 0 && Marshal.ReadInt32(lParam) == 0x2C /* VK_SNAPSHOT */)
             {
-                static bool Down(int vk) => (GetAsyncKeyState(vk) & 0x8000) != 0;
-                bool ctrl = Down(0x11), shift = Down(0x10), alt = Down(0x12), win = Down(0x5B) || Down(0x5C);
+                int msg = wParam.ToInt32();
+                bool keyDown = msg == 0x0100 || msg == 0x0104; // WM_KEYDOWN, WM_SYSKEYDOWN
 
-                HotkeySettings match = Hotkeys.Find(h => h.HotkeyInfo.KeyCode == InputKey.PrintScreen &&
-                    h.HotkeyInfo.Control == ctrl && h.HotkeyInfo.Shift == shift && h.HotkeyInfo.Alt == alt && h.HotkeyInfo.Win == win);
-
-                if (match != null)
+                // ShareXg: holding PrtSc auto-repeats key-down; act on the first one, swallow the repeats and its key-up.
+                if (printScreenDown)
                 {
-                    int msg = wParam.ToInt32();
-                    if (msg == 0x0100 || msg == 0x0104) // WM_KEYDOWN, WM_SYSKEYDOWN
+                    if (!keyDown)
                     {
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() => OnHotkeyTrigger(match));
+                        printScreenDown = false;
                     }
 
-                    return (IntPtr)1; // swallow down and up so Snipping Tool never sees it
+                    return (IntPtr)1;
+                }
+
+                if (Hotkeys != null && !IgnoreHotkeys)
+                {
+                    static bool Down(int vk) => (GetAsyncKeyState(vk) & 0x8000) != 0;
+                    bool ctrl = Down(0x11), shift = Down(0x10), alt = Down(0x12), win = Down(0x5B) || Down(0x5C);
+
+                    HotkeySettings match = Hotkeys.Find(h => h.HotkeyInfo.KeyCode == InputKey.PrintScreen &&
+                        h.HotkeyInfo.Control == ctrl && h.HotkeyInfo.Shift == shift && h.HotkeyInfo.Alt == alt && h.HotkeyInfo.Win == win);
+
+                    if (match != null)
+                    {
+                        if (keyDown)
+                        {
+                            printScreenDown = true;
+
+                            // ShareXg: same fullscreen rule as OnHotkeyPressed, checked after the callback returns.
+                            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            {
+                                if (!ApplicationState.Settings.DisableHotkeysOnFullscreen || !CaptureHelpers.IsActiveWindowFullscreen())
+                                {
+                                    OnHotkeyTrigger(match);
+                                }
+                            });
+                        }
+
+                        return (IntPtr)1; // swallow down and up so Snipping Tool never sees it
+                    }
                 }
             }
 
@@ -123,6 +221,8 @@ namespace ShareX
 
         private void OnHostClosed(object sender, EventArgs e)
         {
+            RemovePrintScreenHook(); // ShareXg
+
             if (hotkeyHost != null && !hotkeyHost.IsDisposed)
             {
                 UnregisterAllHotkeys(false);
