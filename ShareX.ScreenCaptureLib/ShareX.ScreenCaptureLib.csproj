@@ -3,6 +3,7 @@
     <TargetFramework>net11.0-windows</TargetFramework>
     <OutputType>Library</OutputType>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <UseWPF>true</UseWPF>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Vortice.Direct3D11" />

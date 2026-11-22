@@ -98,6 +98,17 @@ namespace ShareX.ScreenCaptureLib
                 }
             }
 
+            // ShareXg: snap to panels inside the top few windows via UI Automation (Electron apps have no child HWNDs).
+            if (IncludeChildWindows)
+            {
+                foreach (SimpleWindowInfo top in result.Where(w => w.IsWindow).Take(3).ToList())
+                {
+                    List<Rectangle> panels = UiaRegionScanner.GetPanels(top.Handle, top.Rectangle, 400);
+                    int index = result.IndexOf(top);
+                    result.InsertRange(index, panels.Select(rc => new SimpleWindowInfo(top.Handle, rc)));
+                }
+            }
+
             return result;
         }
 
