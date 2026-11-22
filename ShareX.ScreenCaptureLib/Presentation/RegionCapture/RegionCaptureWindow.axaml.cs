@@ -154,10 +154,37 @@ public partial class RegionCaptureWindow : Window
         _imageHeight = Math.Max(1, request.ScreenBounds.Height);
         if (request.RegionCaptureOptions.ActiveMonitorMode)
         {
-            Helpers.LockCursorToWindow(this);
+            // ShareXg: instead of trapping the cursor, close and reopen on the monitor the cursor moves to.
+            _monitorWatch = new Avalonia.Threading.DispatcherTimer(TimeSpan.FromMilliseconds(120),
+                Avalonia.Threading.DispatcherPriority.Background, (_, _) => CheckMonitorSwitch());
+            Opened += (_, _) => _monitorWatch.Start();
+            Closed += (_, _) => _monitorWatch.Stop();
         }
         InitializeCaptureWorkspace();
         Opened += OnOpened;
+    }
+
+    /// <summary>ShareXg: set when the overlay closed because the cursor left for another monitor. The caller reopens.</summary>
+    public static bool MonitorSwitchRequested { get; set; }
+
+    private readonly Avalonia.Threading.DispatcherTimer? _monitorWatch;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern short GetAsyncKeyState(int vKey);
+
+    private void CheckMonitorSwitch()
+    {
+        if (_request == null || _closing || (GetAsyncKeyState(0x01) & 0x8000) != 0)
+        {
+            return;
+        }
+
+        DrawingPoint cursor = CaptureHelpers.GetCursorPosition();
+        if (!_request.ScreenBounds.Contains(cursor))
+        {
+            _monitorWatch?.Stop();
+            MonitorSwitchRequested = true;
+            CancelCapture();
+        }
     }
 
     public Task<AvaloniaRegionCaptureResult?> CaptureAsync()

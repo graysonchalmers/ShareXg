@@ -95,9 +95,17 @@ namespace ShareX
                 CursorPosition = cursorPosition
             };
 
+            ScreenCaptureLib.Presentation.RegionCapture.RegionCaptureWindow.MonitorSwitchRequested = false;
             AvaloniaRegionCaptureResult result = await RegionCaptureIntegration.CaptureAsync(request);
             if (result == null)
             {
+                // ShareXg: the cursor moved to another monitor; capture again there.
+                if (ScreenCaptureLib.Presentation.RegionCapture.RegionCaptureWindow.MonitorSwitchRequested && activeMonitorMode)
+                {
+                    ScreenCaptureLib.Presentation.RegionCapture.RegionCaptureWindow.MonitorSwitchRequested = false;
+                    return await ExecuteRegionCaptureAvaloniaAsync(taskSettings);
+                }
+
                 return null;
             }
 
