@@ -2,3 +2,8 @@ virtual {X=-2560,Y=0,Width=8000,Height=1825}
 monitor 1: bounds {X=0,Y=0,Width=2880,Height=1800}, scaling 1.75 (168 dpi), overlay 1645.7x1028.6 DIP, slice 2880x1800 px, cursor here False
 monitor 2: bounds {X=-2560,Y=385,Width=2560,Height=1440}, scaling 1.25 (120 dpi), overlay 2048x1152 DIP, slice 2560x1440 px, cursor here True
 monitor 3: bounds {X=2880,Y=366,Width=2560,Height=1440}, scaling 1.25 (120 dpi), overlay 2048x1152 DIP, slice 2560x1440 px, cursor here False
+span {X=-1280,Y=585,Width=2720,Height=1015}
+monitor 1 draws {X=0,Y=585,Width=1440,Height=1015}
+monitor 2 draws {X=1280,Y=200,Width=1280,Height=1015}
+monitor 3 draws {X=0,Y=0,Width=0,Height=0}
+stitched 2720x1015

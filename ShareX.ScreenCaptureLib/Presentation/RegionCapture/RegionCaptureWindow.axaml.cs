@@ -938,6 +938,11 @@ public partial class RegionCaptureWindow : Window
                 AddFreehandPoint(point, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
                 break;
             case RegionInteraction.Creating:
+                if (TryUpdateSpan())
+                {
+                    break;
+                }
+
                 UpdateSelectionDuringCreation(point, e.KeyModifiers);
                 break;
             case RegionInteraction.Moving:
@@ -963,6 +968,15 @@ public partial class RegionCaptureWindow : Window
 
         if (TryCancelRegionCreation(e, point))
         {
+            return;
+        }
+
+        // ShareXg: a drag that crossed onto another monitor captures the spanning rectangle from the full screenshot.
+        if (_interaction == RegionInteraction.Creating && _request.Session?.Span != null)
+        {
+            e.Pointer.Capture(null);
+            _request.Session.CompleteSpan();
+            e.Handled = true;
             return;
         }
 
@@ -2470,6 +2484,43 @@ public partial class RegionCaptureWindow : Window
         }
 
         return _windows.FirstOrDefault(window => window.IsWindow && window.Rectangle.Contains(point))?.GetWindowInfo();
+    }
+
+    /// <summary>
+    /// ShareXg: while a rectangle is being created, once the cursor leaves this overlay's monitor the selection becomes a
+    /// shared virtual-screen rectangle that every overlay draws its part of.
+    /// </summary>
+    private bool TryUpdateSpan()
+    {
+        PerMonitorSession? session = _request?.Session;
+        if (session == null || _freehandPoints != null || _regionOverlay.Selection.Shape != RegionShape.Rectangle)
+        {
+            return false;
+        }
+
+        DrawingPoint cursor = CaptureHelpers.GetCursorPosition();
+        if (session.Span == null && _request!.ScreenBounds.Contains(cursor))
+        {
+            return false;
+        }
+
+        DrawingPoint start = new(
+            _request!.ScreenBounds.X + (int)Math.Round(_pressPoint.X),
+            _request.ScreenBounds.Y + (int)Math.Round(_pressPoint.Y));
+        session.UpdateSpan(PerMonitorSession.FromCorners(start, cursor));
+        return true;
+    }
+
+    /// <summary>ShareXg: draws this monitor's part of a spanning selection (empty when it misses this monitor).</summary>
+    internal void ShowSpanPart(System.Drawing.Rectangle span)
+    {
+        if (_request == null || _closing)
+        {
+            return;
+        }
+
+        System.Drawing.Rectangle local = PerMonitorSession.LocalPart(span, _request.ScreenBounds);
+        SetSelection(new CaptureRegion(RegionShape.Rectangle, new Rect(local.X, local.Y, local.Width, local.Height)), null);
     }
 
     /// <summary>ShareXg: closes this overlay without a result because another monitor's overlay finished.</summary>

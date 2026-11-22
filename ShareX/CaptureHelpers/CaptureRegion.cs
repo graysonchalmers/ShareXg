@@ -131,7 +131,9 @@ namespace ShareX
             Point cursor = CaptureHelpers.GetCursorPosition();
             List<AvaloniaRegionCaptureRequest> requests = new();
 
-            using (Bitmap full = screenshot.CaptureFullscreen())
+            // The session keeps the full screenshot so a selection spanning monitors can be cut from it.
+            using PerMonitorSession session = new PerMonitorSession(screenshot.CaptureFullscreen(), virtualBounds);
+            Bitmap full = session.Full;
             {
                 CursorData cursorData = taskSettings.CaptureSettings.ShowCursor ? new CursorData() : null;
 
@@ -160,7 +162,8 @@ namespace ShareX
                         CursorBitmap = cursorBitmap,
                         CursorPosition = cursorPosition,
                         IsPrimaryOverlay = primary,
-                        PerMonitor = true
+                        PerMonitor = true,
+                        Session = session
                     });
                 }
             }

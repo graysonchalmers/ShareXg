@@ -215,6 +215,41 @@ internal static class Program
                 slice.Encode(fs, SkiaSharp.SKEncodedImageFormat.Png, 100);
             }
 
+            // Cross-monitor selection: a rectangle from the middle of the leftmost monitor to the middle of the next one.
+            System.Drawing.Rectangle[] ordered = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.OrderBy(System.Linq.Enumerable.Select(screens, x => x.Bounds), x => x.X));
+            if (ordered.Length >= 2)
+            {
+                System.Drawing.Rectangle a = ordered[0], b = ordered[1];
+                System.Drawing.Rectangle span = ShareX.ScreenCaptureLib.Presentation.RegionCapture.PerMonitorSession.FromCorners(
+                    new System.Drawing.Point(a.X + a.Width / 2, Math.Max(a.Y, b.Y) + 200),
+                    new System.Drawing.Point(b.X + b.Width / 2, Math.Min(a.Bottom, b.Bottom) - 200));
+                lines.Add($"span {span}");
+                using SkiaSharp.SKPaint dim = new() { Color = new SkiaSharp.SKColor(0, 0, 0, 140) };
+                using SkiaSharp.SKPaint sel = new() { Color = new SkiaSharp.SKColor(255, 140, 0), StrokeWidth = 6, IsStroke = true };
+                for (int i = 0; i < screens.Length; i++)
+                {
+                    System.Drawing.Rectangle m = screens[i].Bounds;
+                    System.Drawing.Rectangle local = ShareX.ScreenCaptureLib.Presentation.RegionCapture.PerMonitorSession.LocalPart(span, m);
+                    lines.Add($"monitor {i + 1} draws {local}");
+                    using SkiaSharp.SKBitmap view = CaptureRegion.SliceMonitor(desktop, virtualBounds, m);
+                    using (SkiaSharp.SKCanvas c = new(view))
+                    {
+                        using SkiaSharp.SKPath outside = new();
+                        outside.AddRect(new SkiaSharp.SKRect(0, 0, m.Width, m.Height));
+                        if (!local.IsEmpty) { outside.AddRect(new SkiaSharp.SKRect(local.Left, local.Top, local.Right, local.Bottom)); outside.FillType = SkiaSharp.SKPathFillType.EvenOdd; }
+                        c.DrawPath(outside, dim);
+                        if (!local.IsEmpty) c.DrawRect(local.X, local.Y, local.Width, local.Height, sel);
+                    }
+                    using System.IO.FileStream vf = System.IO.File.Create(System.IO.Path.Combine(perMonitorDir, $"span-monitor-{i + 1}.png"));
+                    view.Encode(vf, SkiaSharp.SKEncodedImageFormat.Png, 100);
+                }
+
+                using SkiaSharp.SKBitmap stitched = ShareX.ScreenCaptureLib.Presentation.RegionCapture.PerMonitorSession.Crop(desktop, virtualBounds, span);
+                lines.Add($"stitched {stitched.Width}x{stitched.Height}");
+                using System.IO.FileStream sf = System.IO.File.Create(System.IO.Path.Combine(perMonitorDir, "span-stitched.png"));
+                stitched.Encode(sf, SkiaSharp.SKEncodedImageFormat.Png, 100);
+            }
+
             System.IO.File.WriteAllLines(System.IO.Path.Combine(perMonitorDir, "monitors.txt"), lines);
             Environment.Exit(0);
         }

@@ -71,4 +71,7 @@ public sealed class AvaloniaRegionCaptureRequest
 
     /// <summary>ShareXg: this overlay covers exactly one monitor and takes that monitor's DPI (no DPI lock).</summary>
     public bool PerMonitor { get; init; }
+
+    /// <summary>ShareXg: shared state of all per-monitor overlays of this capture (cross-monitor selection).</summary>
+    public PerMonitorSession? Session { get; init; }
 }

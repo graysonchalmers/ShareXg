@@ -100,6 +100,7 @@ public static class RegionCaptureIntegration
                 {
                     RegionCaptureWindow window = new(request);
                     windows.Add(window);
+                    request.Session?.Windows.Add(window);
                     tasks.Add(window.CaptureAsync());
                 }
 
@@ -110,6 +111,13 @@ public static class RegionCaptureIntegration
                 }
 
                 AvaloniaRegionCaptureResult? result = await first;
+                AvaloniaRegionCaptureResult? spanResult = requests[0].Session?.SpanResult;
+                if (spanResult != null)
+                {
+                    result?.Image.Dispose();
+                    result = spanResult;
+                }
+
                 foreach (Task<AvaloniaRegionCaptureResult?> task in tasks)
                 {
                     if (task != first)
