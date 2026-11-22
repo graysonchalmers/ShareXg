@@ -31,5 +31,8 @@ namespace ShareX
     public class HotkeysConfig : SettingsBase<HotkeysConfig>
     {
         public List<HotkeySettings> Hotkeys = HotkeyManager.GetDefaultHotkeyList();
+
+        // One-time: add Ctrl+Shift+T OCR hotkey to existing configs if that combo is free.
+        public bool QuickOCRHotkeyAdded = false;
     }
 }
