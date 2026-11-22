@@ -62,4 +62,16 @@ public sealed class AvaloniaRegionCaptureRequest
 
     /// <summary>Cursor draw position in screenshot pixel coordinates.</summary>
     public Point CursorPosition { get; init; }
+
+    /// <summary>ShareXg legacy fallback: close when the cursor leaves <see cref="ScreenBounds"/> so the caller reopens there.</summary>
+    public bool FollowCursorMonitor { get; init; }
+
+    /// <summary>ShareXg per-monitor overlay: false for overlays on monitors other than the cursor's (opened without focus).</summary>
+    public bool IsPrimaryOverlay { get; init; } = true;
+
+    /// <summary>ShareXg: this overlay covers exactly one monitor and takes that monitor's DPI (no DPI lock).</summary>
+    public bool PerMonitor { get; init; }
+
+    /// <summary>ShareXg: shared state of all per-monitor overlays of this capture (cross-monitor selection).</summary>
+    public PerMonitorSession? Session { get; init; }
 }

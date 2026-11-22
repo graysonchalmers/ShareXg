@@ -152,7 +152,8 @@ public partial class RegionCaptureWindow : Window
         _request = request ?? throw new ArgumentNullException(nameof(request));
         _imageWidth = Math.Max(1, request.ScreenBounds.Width);
         _imageHeight = Math.Max(1, request.ScreenBounds.Height);
-        if (request.RegionCaptureOptions.ActiveMonitorMode)
+        ShowActivated = request.IsPrimaryOverlay;
+        if (request.FollowCursorMonitor)
         {
             // ShareXg: instead of trapping the cursor, close and reopen on the monitor the cursor moves to.
             _monitorWatch = new Avalonia.Threading.DispatcherTimer(TimeSpan.FromMilliseconds(120),
@@ -614,11 +615,21 @@ public partial class RegionCaptureWindow : Window
                 ActivateRegionTool();
             }
 
-            Activate();
-            Focus();
-            _regionInputSurface.Focus();
-
             DrawingPoint cursorPosition = CaptureHelpers.GetCursorPosition();
+            if (_request.IsPrimaryOverlay)
+            {
+                Activate();
+                Focus();
+                _regionInputSurface.Focus();
+            }
+            else
+            {
+                // ShareXg: not under the cursor; anchor the toolbar on this overlay's own monitor.
+                cursorPosition = new DrawingPoint(
+                    _request.ScreenBounds.X + _request.ScreenBounds.Width / 2,
+                    _request.ScreenBounds.Y + _request.ScreenBounds.Height / 2);
+            }
+
             _lastPointerPoint = ClampPoint(new Point(
                 cursorPosition.X - _request.ScreenBounds.X,
                 cursorPosition.Y - _request.ScreenBounds.Y));
@@ -869,6 +880,7 @@ public partial class RegionCaptureWindow : Window
             }
 
             SetInteraction(RegionInteraction.Creating);
+            StartSpanTracking();
         }
 
         if (_interaction is RegionInteraction.Creating or RegionInteraction.PendingHover)
@@ -918,6 +930,7 @@ public partial class RegionCaptureWindow : Window
                 if (Distance(_pressPoint, point) >= 4)
                 {
                     SetInteraction(RegionInteraction.Creating);
+                    StartSpanTracking();
                     _selectedCandidate = null;
                     SetSelection(new CaptureRegion(_regionOverlay.HoverShape, default), null);
                     UpdateSelectionDuringCreation(point, e.KeyModifiers);
@@ -927,6 +940,11 @@ public partial class RegionCaptureWindow : Window
                 AddFreehandPoint(point, e.KeyModifiers.HasFlag(KeyModifiers.Shift));
                 break;
             case RegionInteraction.Creating:
+                if (TryUpdateSpan())
+                {
+                    break;
+                }
+
                 UpdateSelectionDuringCreation(point, e.KeyModifiers);
                 break;
             case RegionInteraction.Moving:
@@ -952,6 +970,15 @@ public partial class RegionCaptureWindow : Window
 
         if (TryCancelRegionCreation(e, point))
         {
+            return;
+        }
+
+        // ShareXg: a drag that crossed onto another monitor captures the spanning rectangle from the full screenshot.
+        if (_interaction == RegionInteraction.Creating && _request.Session?.Span != null)
+        {
+            e.Pointer.Capture(null);
+            _request.Session.CompleteSpan();
+            e.Handled = true;
             return;
         }
 
@@ -1166,8 +1193,8 @@ public partial class RegionCaptureWindow : Window
         DrawingPoint saved = _request.RegionCaptureOptions.ToolbarPosition;
         if (!saved.IsEmpty)
         {
-            PixelPoint savedPoint = new(saved.X, saved.Y);
-            if (Screens.All.Any(screen => screen.Bounds.Contains(savedPoint)))
+            // ShareXg: a per-monitor overlay only uses a saved position that lies on its own monitor.
+            if (_request.ScreenBounds.Contains(saved))
             {
                 SetCaptureToolbarAnchor(
                     (saved.X - _request.ScreenBounds.X) / scale,
@@ -2461,6 +2488,65 @@ public partial class RegionCaptureWindow : Window
         return _windows.FirstOrDefault(window => window.IsWindow && window.Rectangle.Contains(point))?.GetWindowInfo();
     }
 
+    /// <summary>
+    /// ShareXg: while a rectangle is being created, once the cursor leaves this overlay's monitor the selection becomes a
+    /// shared virtual-screen rectangle that every overlay draws its part of.
+    /// </summary>
+    private bool TryUpdateSpan()
+    {
+        PerMonitorSession? session = _request?.Session;
+        if (session == null || _closing || _interaction != RegionInteraction.Creating || _freehandPoints != null ||
+            _regionOverlay.Selection.Shape != RegionShape.Rectangle)
+        {
+            return false;
+        }
+
+        DrawingPoint start = new(
+            _request!.ScreenBounds.X + (int)Math.Round(_pressPoint.X),
+            _request.ScreenBounds.Y + (int)Math.Round(_pressPoint.Y));
+        return session.Track(_request.ScreenBounds, start, CaptureHelpers.GetCursorPosition(),
+            (GetAsyncKeyState(0x01) & 0x8000) != 0);
+    }
+
+    private Avalonia.Threading.DispatcherTimer? _spanTimer;
+
+    /// <summary>ShareXg: polls the global cursor while a rectangle is being created, so a drag onto another monitor is seen.</summary>
+    private void StartSpanTracking()
+    {
+        if (_request?.Session == null)
+        {
+            return;
+        }
+
+        _spanTimer ??= new Avalonia.Threading.DispatcherTimer(TimeSpan.FromMilliseconds(15),
+            Avalonia.Threading.DispatcherPriority.Input, (_, _) =>
+            {
+                if (_closing || _interaction != RegionInteraction.Creating)
+                {
+                    _spanTimer?.Stop();
+                    return;
+                }
+
+                TryUpdateSpan();
+            });
+        _spanTimer.Start();
+    }
+
+    /// <summary>ShareXg: draws this monitor's part of a spanning selection (empty when it misses this monitor).</summary>
+    internal void ShowSpanPart(System.Drawing.Rectangle span)
+    {
+        if (_request == null || _closing)
+        {
+            return;
+        }
+
+        System.Drawing.Rectangle local = PerMonitorSession.LocalPart(span, _request.ScreenBounds);
+        SetSelection(new CaptureRegion(RegionShape.Rectangle, new Rect(local.X, local.Y, local.Width, local.Height)), null);
+    }
+
+    /// <summary>ShareXg: closes this overlay without a result because another monitor's overlay finished.</summary>
+    public void CloseWithoutResult() => CancelCapture();
+
     private void CancelCapture()
     {
         if (_closing)
@@ -2595,7 +2681,21 @@ public partial class RegionCaptureWindow : Window
 
         // From here the overlay spans monitors and is sized in device pixels. Keep the scale it now has, or Windows switches
         // it between the monitors' DPIs while it is resized and moved (mixed scaling) and selections miss the screenshot.
-        RegionCaptureFixedScale.Apply(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
+        // ShareXg: a per-monitor overlay never spans monitors, so it must take its own monitor's DPI instead.
+        if (!_request.PerMonitor)
+        {
+            RegionCaptureFixedScale.Apply(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
+        }
+        else
+        {
+            ScalingChanged += (_, _) =>
+            {
+                ApplyPixelSize();
+                Helpers.EnsureWindowPosition(this, _request.ScreenBounds.X, _request.ScreenBounds.Y);
+                UpdatePixelTransforms();
+            };
+        }
+
         ApplyPixelSize();
         Helpers.EnsureWindowPosition(this, _request.ScreenBounds.X, _request.ScreenBounds.Y);
     }

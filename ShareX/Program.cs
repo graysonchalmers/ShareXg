@@ -164,6 +164,109 @@ internal static class Program
             Environment.Exit(0);
         }
 
+        // ShareXg proof harness: per-monitor region overlays. For each monitor, prints the overlay bounds and scaling and
+        // writes its slice of a synthetic desktop (no real screen content) at 1:1 physical pixels. Nothing is shown on screen.
+        // ShareXg live-test harness: open the region overlays, then exit after the given seconds (default 12).
+        string? testOverlay = ApplicationCommandLine.GetParameterText("TestRegionOverlay");
+        if (ApplicationCommandLine.IsCommandPresent("TestRegionOverlay"))
+        {
+            int seconds = int.TryParse(testOverlay, out int s) && s > 0 ? s : 12;
+            _ = Task.Run(async () => { await Task.Delay(seconds * 1000); Environment.Exit(0); });
+            await CaptureRegion.RunTestCaptureAsync();
+            Environment.Exit(0);
+        }
+
+        string? perMonitorDir = ApplicationCommandLine.GetParameterText("RenderPerMonitor");
+        if (!string.IsNullOrEmpty(perMonitorDir))
+        {
+            System.IO.Directory.CreateDirectory(perMonitorDir);
+            System.Collections.Generic.List<string> lines = new();
+            System.Drawing.Rectangle virtualBounds = CaptureHelpers.GetScreenBounds();
+            lines.Add($"virtual {virtualBounds}");
+            Avalonia.Controls.Window probe = new();
+            DesktopScreen[] screens = DesktopScreen.AllScreens;
+            using SkiaSharp.SKBitmap desktop = new(virtualBounds.Width, virtualBounds.Height);
+            using (SkiaSharp.SKCanvas canvas = new(desktop))
+            {
+                canvas.Clear(new SkiaSharp.SKColor(40, 44, 52));
+                using SkiaSharp.SKPaint grid = new() { Color = new SkiaSharp.SKColor(90, 100, 120), StrokeWidth = 1 };
+                for (int x = 0; x < virtualBounds.Width; x += 100) canvas.DrawLine(x, 0, x, virtualBounds.Height, grid);
+                for (int y = 0; y < virtualBounds.Height; y += 100) canvas.DrawLine(0, y, virtualBounds.Width, y, grid);
+                using SkiaSharp.SKPaint edge = new() { Color = new SkiaSharp.SKColor(255, 140, 0), StrokeWidth = 8, IsStroke = true };
+                using SkiaSharp.SKFont font = new() { Size = 64 };
+                using SkiaSharp.SKPaint text = new() { Color = SkiaSharp.SKColors.White };
+                for (int i = 0; i < screens.Length; i++)
+                {
+                    System.Drawing.Rectangle b = screens[i].Bounds;
+                    float ox = b.X - virtualBounds.X, oy = b.Y - virtualBounds.Y;
+                    canvas.DrawRect(ox + 4, oy + 4, b.Width - 8, b.Height - 8, edge);
+                    canvas.DrawText($"Monitor {i + 1}  {b.Width}x{b.Height} @ {b.X},{b.Y}", ox + 60, oy + 120, font, text);
+                }
+            }
+
+            for (int i = 0; i < screens.Length; i++)
+            {
+                System.Drawing.Rectangle b = screens[i].Bounds;
+                double scaling = probe.Screens.ScreenFromPoint(new Avalonia.PixelPoint(b.X + b.Width / 2, b.Y + b.Height / 2))?.Scaling ?? 1;
+                using SkiaSharp.SKBitmap slice = CaptureRegion.SliceMonitor(desktop, virtualBounds, b);
+                bool primary = b.Contains(CaptureHelpers.GetCursorPosition());
+                lines.Add($"monitor {i + 1}: bounds {b}, scaling {scaling:0.##} ({scaling * 96:0} dpi), overlay {b.Width / scaling:0.#}x{b.Height / scaling:0.#} DIP, slice {slice.Width}x{slice.Height} px, cursor here {primary}");
+                using System.IO.FileStream fs = System.IO.File.Create(System.IO.Path.Combine(perMonitorDir, $"monitor-{i + 1}.png"));
+                slice.Encode(fs, SkiaSharp.SKEncodedImageFormat.Png, 100);
+            }
+
+            // Cross-monitor selection: a rectangle from the middle of the leftmost monitor to the middle of the next one.
+            System.Drawing.Rectangle[] ordered = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.OrderBy(System.Linq.Enumerable.Select(screens, x => x.Bounds), x => x.X));
+            if (ordered.Length >= 2)
+            {
+                System.Drawing.Rectangle a = ordered[0], b = ordered[1];
+                System.Drawing.Rectangle span = ShareX.ScreenCaptureLib.Presentation.RegionCapture.PerMonitorSession.FromCorners(
+                    new System.Drawing.Point(a.X + a.Width / 2, Math.Max(a.Y, b.Y) + 200),
+                    new System.Drawing.Point(b.X + b.Width / 2, Math.Min(a.Bottom, b.Bottom) - 200));
+                lines.Add($"span {span}");
+                using SkiaSharp.SKPaint dim = new() { Color = new SkiaSharp.SKColor(0, 0, 0, 140) };
+                using SkiaSharp.SKPaint sel = new() { Color = new SkiaSharp.SKColor(255, 140, 0), StrokeWidth = 6, IsStroke = true };
+                for (int i = 0; i < screens.Length; i++)
+                {
+                    System.Drawing.Rectangle m = screens[i].Bounds;
+                    System.Drawing.Rectangle local = ShareX.ScreenCaptureLib.Presentation.RegionCapture.PerMonitorSession.LocalPart(span, m);
+                    lines.Add($"monitor {i + 1} draws {local}");
+                    using SkiaSharp.SKBitmap view = CaptureRegion.SliceMonitor(desktop, virtualBounds, m);
+                    using (SkiaSharp.SKCanvas c = new(view))
+                    {
+                        using SkiaSharp.SKPath outside = new();
+                        outside.AddRect(new SkiaSharp.SKRect(0, 0, m.Width, m.Height));
+                        if (!local.IsEmpty) { outside.AddRect(new SkiaSharp.SKRect(local.Left, local.Top, local.Right, local.Bottom)); outside.FillType = SkiaSharp.SKPathFillType.EvenOdd; }
+                        c.DrawPath(outside, dim);
+                        if (!local.IsEmpty) c.DrawRect(local.X, local.Y, local.Width, local.Height, sel);
+                    }
+                    using System.IO.FileStream vf = System.IO.File.Create(System.IO.Path.Combine(perMonitorDir, $"span-monitor-{i + 1}.png"));
+                    view.Encode(vf, SkiaSharp.SKEncodedImageFormat.Png, 100);
+                }
+
+                using SkiaSharp.SKBitmap stitched = ShareX.ScreenCaptureLib.Presentation.RegionCapture.PerMonitorSession.Crop(desktop, virtualBounds, span);
+                lines.Add($"stitched {stitched.Width}x{stitched.Height}");
+
+                // Drag path test: the same Track() the overlay timer calls, fed a press on the left monitor, a move inside
+                // it, a move onto the next monitor and a release.
+                using ShareX.ScreenCaptureLib.Presentation.RegionCapture.PerMonitorSession track = new(desktop.Copy(), virtualBounds);
+                System.Drawing.Point press = new(a.X + a.Width / 2, Math.Max(a.Y, b.Y) + 200);
+                bool s1 = track.Track(a, press, new System.Drawing.Point(press.X + 300, press.Y + 300), true);
+                bool s2 = track.Track(a, press, new System.Drawing.Point(b.X + b.Width / 2, Math.Min(a.Bottom, b.Bottom) - 200), true);
+                System.Drawing.Rectangle? during = track.Span;
+                bool s3 = track.Track(a, press, new System.Drawing.Point(b.X + b.Width / 2, Math.Min(a.Bottom, b.Bottom) - 200), false);
+                System.Drawing.Rectangle? got = track.SpanResult?.ScreenRectangle;
+                bool pass = !s1 && s2 && s3 && during == span && got == span && track.SpanResult!.Image.Width == span.Width;
+                lines.Add($"drag test: inside-start-monitor spans={s1}, onto-next-monitor spans={s2} rect={during}, release completes={s3} result={got} -> {(pass ? "PASS" : "FAIL")}");
+                track.SpanResult?.Image.Dispose();
+                using System.IO.FileStream sf = System.IO.File.Create(System.IO.Path.Combine(perMonitorDir, "span-stitched.png"));
+                stitched.Encode(sf, SkiaSharp.SKEncodedImageFormat.Png, 100);
+            }
+
+            System.IO.File.WriteAllLines(System.IO.Path.Combine(perMonitorDir, "monitors.txt"), lines);
+            Environment.Exit(0);
+        }
+
         if (ApplicationState.Settings.ShowStartScreen && !StartupOptions.Sandbox)
         {
             DebugHelper.WriteLine("Start screen opening.");

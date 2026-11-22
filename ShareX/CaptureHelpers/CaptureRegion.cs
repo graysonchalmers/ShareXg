@@ -28,6 +28,8 @@ using ShareX.ScreenCaptureLib;
 using ShareX.ScreenCaptureLib.Presentation.RegionCapture;
 using SkiaSharp;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Drawing;
 using System.Threading.Tasks;
 using Bitmap = SkiaSharp.SKBitmap;
@@ -51,12 +53,21 @@ namespace ShareX
             return await ExecuteRegionCaptureAvaloniaAsync(taskSettings);
         }
 
+        // ShareXg live-test harness: run region capture with default settings, no upload or after-capture tasks.
+        internal static Task<TaskMetadata> RunTestCaptureAsync() =>
+            new CaptureRegion().ExecuteRegionCaptureAvaloniaAsync(TaskSettings.GetDefaultTaskSettings());
+
         protected async Task<TaskMetadata> ExecuteRegionCaptureAvaloniaAsync(TaskSettings taskSettings)
         {
             Screenshot screenshot = TaskHelpers.GetScreenshot(taskSettings);
             screenshot.CaptureCursor = false;
 
             bool activeMonitorMode = taskSettings.CaptureSettings.RegionCaptureOptions.ActiveMonitorMode;
+            if (activeMonitorMode && taskSettings.CaptureSettings.RegionCaptureOptions.PerMonitorOverlay)
+            {
+                return await ExecutePerMonitorAsync(taskSettings, screenshot);
+            }
+
             Rectangle screenBounds = activeMonitorMode
                 ? CaptureHelpers.GetActiveScreenBounds()
                 : CaptureHelpers.GetScreenBounds();
@@ -92,7 +103,8 @@ namespace ShareX
                 EnableAnnotations = !taskSettings.AdvancedSettings.RegionCaptureDisableAnnotation,
                 AllowMultipleRegions = true,
                 CursorBitmap = cursorBitmap,
-                CursorPosition = cursorPosition
+                CursorPosition = cursorPosition,
+                FollowCursorMonitor = activeMonitorMode
             };
 
             ScreenCaptureLib.Presentation.RegionCapture.RegionCaptureWindow.MonitorSwitchRequested = false;
@@ -109,6 +121,71 @@ namespace ShareX
                 return null;
             }
 
+            return await BuildMetadataAsync(taskSettings, result);
+        }
+
+        // ShareXg: one overlay per monitor, all open at once (RegionCaptureOptions.PerMonitorOverlay).
+        private async Task<TaskMetadata> ExecutePerMonitorAsync(TaskSettings taskSettings, Screenshot screenshot)
+        {
+            Rectangle virtualBounds = CaptureHelpers.GetScreenBounds();
+            Point cursor = CaptureHelpers.GetCursorPosition();
+            List<AvaloniaRegionCaptureRequest> requests = new();
+
+            // The session keeps the full screenshot so a selection spanning monitors can be cut from it.
+            using PerMonitorSession session = new PerMonitorSession(screenshot.CaptureFullscreen(), virtualBounds);
+            Bitmap full = session.Full;
+            {
+                CursorData cursorData = taskSettings.CaptureSettings.ShowCursor ? new CursorData() : null;
+
+                foreach (Rectangle bounds in DesktopScreen.AllScreens.Select(x => x.Bounds))
+                {
+                    bool primary = bounds.Contains(cursor);
+                    Bitmap slice = SliceMonitor(full, virtualBounds, bounds);
+
+                    Bitmap cursorBitmap = null;
+                    Point cursorPosition = Point.Empty;
+                    if (primary && cursorData != null && cursorData.IsVisible)
+                    {
+                        cursorBitmap = cursorData.ToBitmap(slice, bounds.Location);
+                        cursorPosition = new Point(cursorData.DrawPosition.X - bounds.X, cursorData.DrawPosition.Y - bounds.Y);
+                    }
+
+                    requests.Add(new AvaloniaRegionCaptureRequest
+                    {
+                        Screenshot = slice,
+                        ScreenshotIsOpaque = true,
+                        ScreenBounds = bounds,
+                        RegionCaptureOptions = taskSettings.CaptureSettingsReference.RegionCaptureOptions,
+                        ImageEditorOptions = taskSettings.ToolsSettingsReference.ImageEditorOptions,
+                        EnableAnnotations = !taskSettings.AdvancedSettings.RegionCaptureDisableAnnotation,
+                        AllowMultipleRegions = true,
+                        CursorBitmap = cursorBitmap,
+                        CursorPosition = cursorPosition,
+                        IsPrimaryOverlay = primary,
+                        PerMonitor = true,
+                        Session = taskSettings.CaptureSettings.RegionCaptureOptions.CrossMonitorDrag ? session : null
+                    });
+                }
+            }
+
+            AvaloniaRegionCaptureResult result = await RegionCaptureIntegration.CaptureMultiAsync(requests);
+            return result == null ? null : await BuildMetadataAsync(taskSettings, result);
+        }
+
+        /// <summary>ShareXg: an independent copy of one monitor's pixels (each overlay disposes its own).</summary>
+        internal static Bitmap SliceMonitor(Bitmap full, Rectangle virtualBounds, Rectangle bounds)
+        {
+            Bitmap slice = new Bitmap(bounds.Width, bounds.Height, full.ColorType, full.AlphaType);
+            using (SKCanvas canvas = new SKCanvas(slice))
+            {
+                canvas.DrawBitmap(full, -(bounds.X - virtualBounds.X), -(bounds.Y - virtualBounds.Y));
+            }
+
+            return slice;
+        }
+
+        private async Task<TaskMetadata> BuildMetadataAsync(TaskSettings taskSettings, AvaloniaRegionCaptureResult result)
+        {
             using (result.Image)
             {
                 Bitmap output = null;
