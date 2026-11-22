@@ -1721,6 +1721,12 @@ Please select a different hotkey or quit the conflicting application and reopen 
   <data name="MainMenuBuilder_NoWindowsFound" xml:space="preserve">
     <value>No windows found</value>
   </data>
+  <data name="MainMenuBuilder_CaptureTextOCR" xml:space="preserve">
+    <value>Capture text (OCR)</value>
+  </data>
+  <data name="MainMenuBuilder_CopyTextAfterCapture" xml:space="preserve">
+    <value>Copy text after capture (OCR)</value>
+  </data>
   <data name="MainMenuBuilder_OCR" xml:space="preserve">
     <value>OCR...</value>
   </data>

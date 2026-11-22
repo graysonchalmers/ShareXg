@@ -579,6 +579,18 @@ namespace ShareX.Localization {
         /// <summary>
         ///   Looks up a localized string similar to OCR....
         /// </summary>
+        public static string MainMenuBuilder_CaptureTextOCR {
+            get {
+                return ResourceManager.GetString("MainMenuBuilder_CaptureTextOCR", resourceCulture);
+            }
+        }
+        
+        public static string MainMenuBuilder_CopyTextAfterCapture {
+            get {
+                return ResourceManager.GetString("MainMenuBuilder_CopyTextAfterCapture", resourceCulture);
+            }
+        }
+        
         public static string MainMenuBuilder_OCR {
             get {
                 return ResourceManager.GetString("MainMenuBuilder_OCR", resourceCulture);

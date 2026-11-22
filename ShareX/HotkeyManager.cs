@@ -282,7 +282,8 @@ namespace ShareX
                 new HotkeySettings(HotkeyType.PrintScreen, InputKey.Control | InputKey.PrintScreen),
                 new HotkeySettings(HotkeyType.ActiveWindow, InputKey.Alt | InputKey.PrintScreen),
                 new HotkeySettings(HotkeyType.ScreenRecorder, InputKey.Shift | InputKey.PrintScreen),
-                new HotkeySettings(HotkeyType.ScreenRecorderGIF, InputKey.Control | InputKey.Shift | InputKey.PrintScreen)
+                new HotkeySettings(HotkeyType.ScreenRecorderGIF, InputKey.Control | InputKey.Shift | InputKey.PrintScreen),
+                new HotkeySettings(HotkeyType.OCR, InputKey.Control | InputKey.Shift | InputKey.T)
             };
         }
     }
