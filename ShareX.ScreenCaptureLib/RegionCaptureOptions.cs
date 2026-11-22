@@ -47,7 +47,7 @@ namespace ShareX.ScreenCaptureLib
         public bool MultiRegionMode = false;
         public bool DetectWindows = true;
         public bool DetectControls = true;
-        public bool ActiveMonitorMode = false;
+        public bool ActiveMonitorMode = true; // ShareXg: one monitor at a time avoids mixed-DPI overlay glitches
         public int BackgroundDimStrength = 20;
         public bool DimAllExceptSelection = false;
         public List<ImageEditorToolbarItemOptions> ToolbarItems = new List<ImageEditorToolbarItemOptions>();
