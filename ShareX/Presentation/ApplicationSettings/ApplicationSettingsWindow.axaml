@@ -734,6 +734,11 @@
                                         <CheckBox Classes="setting" Content="{x:Static res:Strings.ApplicationSettingsWindow_DisableHotkeys}" IsChecked="{Binding DisableHotkeys, Mode=TwoWay}"/>
                                     </StackPanel>
                                     <StackPanel>
+                                        <CheckBox Classes="setting" Content="Print Screen goes to ShareXg, not Snipping Tool (while running; takes effect on restart)"
+                                                  ToolTip.Tip="On: while ShareXg runs, PrtSc and its Ctrl/Alt/Shift combos fire your ShareXg hotkeys and Windows' snipping overlay stays quiet. Turned back off when ShareXg exits. Change which hotkey does what under Hotkey settings."
+                                                  IsChecked="{Binding TakeOverPrintScreen, Mode=TwoWay}"/>
+                                    </StackPanel>
+                                    <StackPanel>
                                         <CheckBox Classes="setting" Content="{x:Static res:Strings.ApplicationSettingsWindow_DisableHotkeysOnFullscreen}" IsChecked="{Binding DisableHotkeysOnFullscreen, Mode=TwoWay}"/>
                                     </StackPanel>
                                     <Grid ColumnDefinitions="240,*" ColumnSpacing="8">

@@ -199,6 +199,10 @@ namespace ShareX
         [Category("Hotkey"), DefaultValue(false), Description("If active window is fullscreen then hotkeys won't be executed.")]
         public bool DisableHotkeysOnFullscreen { get; set; }
 
+        // ShareXg: while running, Print Screen hotkeys go to ShareXg instead of Windows' Snipping Tool.
+        [Category("Hotkey"), DefaultValue(true), Description("While ShareXg runs, Print Screen goes to ShareXg instead of Snipping Tool.")]
+        public bool TakeOverPrintScreen { get; set; } = true;
+
         private int hotkeyRepeatLimit;
 
         [Category("Hotkey"), DefaultValue(500), Description("If you hold hotkeys then it will only trigger every this milliseconds.")]

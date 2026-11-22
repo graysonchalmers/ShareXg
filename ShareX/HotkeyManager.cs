@@ -28,6 +28,7 @@ using ShareX.Localization;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using MessageBox = ShareX.AvaloniaUI.MessageBox;
 using MessageBoxButtons = ShareX.AvaloniaUI.MessageBoxButtons;
 using MessageBoxIcon = ShareX.AvaloniaUI.MessageBoxIcon;
@@ -52,6 +53,59 @@ namespace ShareX
             hotkeyHost = host;
             hotkeyHost.HotkeyPress += OnHotkeyPressed;
             hotkeyHost.Closed += OnHostClosed;
+
+            if (ApplicationState.Settings.TakeOverPrintScreen && !StartupOptions.Sandbox)
+            {
+                InstallPrintScreenHook();
+            }
+        }
+
+        // ShareXg: Windows' Snipping Tool grabs PrtSc with its own low-level hook, which a registry change alone
+        // doesn't stop until sign-out. A low-level hook installed later runs first, so we catch PrtSc here, fire the
+        // matching ShareXg hotkey, and swallow the key. Unhooked automatically when the process exits.
+        private delegate IntPtr LowLevelKeyboardProc(int nCode, IntPtr wParam, IntPtr lParam);
+        private static LowLevelKeyboardProc printScreenProc;
+        private static IntPtr printScreenHook;
+
+        [DllImport("user32.dll", SetLastError = true)]
+        private static extern IntPtr SetWindowsHookEx(int idHook, LowLevelKeyboardProc lpfn, IntPtr hMod, uint dwThreadId);
+        [DllImport("user32.dll")]
+        private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int vKey);
+        [DllImport("kernel32.dll")]
+        private static extern IntPtr GetModuleHandle(string lpModuleName);
+
+        private void InstallPrintScreenHook()
+        {
+            printScreenProc = PrintScreenHookProc;
+            printScreenHook = SetWindowsHookEx(13 /* WH_KEYBOARD_LL */, printScreenProc, GetModuleHandle(null), 0);
+            DebugHelper.WriteLine("PrintScreen hook " + (printScreenHook != IntPtr.Zero ? "installed." : "failed: " + Marshal.GetLastWin32Error()));
+        }
+
+        private IntPtr PrintScreenHookProc(int nCode, IntPtr wParam, IntPtr lParam)
+        {
+            if (nCode >= 0 && Marshal.ReadInt32(lParam) == 0x2C /* VK_SNAPSHOT */ && Hotkeys != null && !IgnoreHotkeys)
+            {
+                static bool Down(int vk) => (GetAsyncKeyState(vk) & 0x8000) != 0;
+                bool ctrl = Down(0x11), shift = Down(0x10), alt = Down(0x12), win = Down(0x5B) || Down(0x5C);
+
+                HotkeySettings match = Hotkeys.Find(h => h.HotkeyInfo.KeyCode == InputKey.PrintScreen &&
+                    h.HotkeyInfo.Control == ctrl && h.HotkeyInfo.Shift == shift && h.HotkeyInfo.Alt == alt && h.HotkeyInfo.Win == win);
+
+                if (match != null)
+                {
+                    int msg = wParam.ToInt32();
+                    if (msg == 0x0100 || msg == 0x0104) // WM_KEYDOWN, WM_SYSKEYDOWN
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() => OnHotkeyTrigger(match));
+                    }
+
+                    return (IntPtr)1; // swallow down and up so Snipping Tool never sees it
+                }
+            }
+
+            return CallNextHookEx(printScreenHook, nCode, wParam, lParam);
         }
 
         private void OnHotkeyPressed(ushort id, InputKey key, Modifiers modifier)

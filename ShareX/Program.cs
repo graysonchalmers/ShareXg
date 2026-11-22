@@ -173,7 +173,7 @@ internal static class Program
         }
 
         // ShareXg: take PrtSc from Snipping Tool while running; restored on exit or crash.
-        if (!StartupOptions.Sandbox) PrintScreenGuard.Engage();
+        if (!StartupOptions.Sandbox && ApplicationState.Settings.TakeOverPrintScreen) PrintScreenGuard.Engage();
 
         DebugHelper.WriteLine("Hotkey host init started.");
         MainForm hotkeyHost = new();

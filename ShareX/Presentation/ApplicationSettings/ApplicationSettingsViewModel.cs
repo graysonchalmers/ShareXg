@@ -776,6 +776,7 @@ public sealed class ApplicationSettingsViewModel : INotifyPropertyChanged, IDisp
     public bool DevMode { get => Settings.DevMode; set => SetSetting(Settings.DevMode, value, x => Settings.DevMode = x); }
 
     public bool DisableHotkeys { get => Settings.DisableHotkeys; set => SetSetting(Settings.DisableHotkeys, value, x => Settings.DisableHotkeys = x); }
+    public bool TakeOverPrintScreen { get => Settings.TakeOverPrintScreen; set => SetSetting(Settings.TakeOverPrintScreen, value, x => Settings.TakeOverPrintScreen = x); }
     public bool DisableHotkeysOnFullscreen { get => Settings.DisableHotkeysOnFullscreen; set => SetSetting(Settings.DisableHotkeysOnFullscreen, value, x => Settings.DisableHotkeysOnFullscreen = x); }
     public decimal HotkeyRepeatLimit { get => Settings.HotkeyRepeatLimit; set => SetSetting(Settings.HotkeyRepeatLimit, decimal.ToInt32(value), x => Settings.HotkeyRepeatLimit = x); }
 
