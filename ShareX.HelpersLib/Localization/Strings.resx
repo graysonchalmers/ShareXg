@@ -1326,6 +1326,9 @@ Do you still want to run it?</value>
   <data name="ToastClickAction_OpenUrl" xml:space="preserve">
     <value>Open link</value>
   </data>
+  <data name="ToastClickAction_OCR" xml:space="preserve">
+    <value>OCR (copy text)</value>
+  </data>
   <data name="ToastClickAction_PinToScreen" xml:space="preserve">
     <value>Pin to screen</value>
   </data>

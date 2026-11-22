@@ -37,6 +37,9 @@ namespace ShareX
     {
         public TaskSettings DefaultTaskSettings = new TaskSettings();
 
+        // One-time: add the OCR notification button to existing configs. Removing it later sticks.
+        public bool QuickOCRButtonAdded = false;
+
         public DateTime FirstTimeRunDate = DateTime.Now;
         public bool ShowStartScreen = true;
         public bool ShowIconPackPrompt = true;

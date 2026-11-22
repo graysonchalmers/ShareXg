@@ -241,6 +241,17 @@ namespace ShareX
 
         private static void ApplicationConfigBackwardCompatibilityTasks()
         {
+            if (!Settings.QuickOCRButtonAdded)
+            {
+                List<NotificationActionButton> buttons = DefaultTaskSettings.GeneralSettings.ToastWindowButtons ??= NotificationActionButton.CreateDefaultButtons();
+                if (!buttons.Any(x => x.Action == ToastClickAction.OCR))
+                {
+                    int pin = buttons.FindIndex(x => x.Action == ToastClickAction.PinToScreen);
+                    buttons.Insert(pin >= 0 ? pin + 1 : buttons.Count, new NotificationActionButton(ToastClickAction.OCR));
+                }
+                Settings.QuickOCRButtonAdded = true;
+            }
+
             if (SystemOptions.DisableUpload)
             {
                 DefaultTaskSettings.AfterCaptureJob = DefaultTaskSettings.AfterCaptureJob.Remove(AfterCaptureTasks.UploadImageToHost);
@@ -329,6 +340,16 @@ namespace ShareX
 
         private static void HotkeysConfigBackwardCompatibilityTasks()
         {
+            if (!HotkeysConfig.QuickOCRHotkeyAdded)
+            {
+                InputKey combo = InputKey.Control | InputKey.Shift | InputKey.T;
+                if (!HotkeysConfig.Hotkeys.Any(x => x.TaskSettings?.Job == HotkeyType.OCR || x.HotkeyInfo?.Hotkey == combo))
+                {
+                    HotkeysConfig.Hotkeys.Add(new HotkeySettings(HotkeyType.OCR, combo));
+                }
+                HotkeysConfig.QuickOCRHotkeyAdded = true;
+            }
+
             if (SystemOptions.DisableUpload)
             {
                 foreach (TaskSettings taskSettings in HotkeysConfig.Hotkeys.Select(x => x.TaskSettings))

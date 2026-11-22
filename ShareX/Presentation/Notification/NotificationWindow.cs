@@ -620,7 +620,7 @@ public partial class NotificationWindow : Window
 
     private static bool UsesImageInMemory(ToastClickAction action, NotificationWindowConfig config) =>
         (action is ToastClickAction.AnnotateImage or ToastClickAction.CopyImageToClipboard or ToastClickAction.PinToScreen or
-            ToastClickAction.Upload) &&
+            ToastClickAction.Upload or ToastClickAction.OCR) &&
         string.IsNullOrWhiteSpace(config.FilePath) && config.Image != null;
 
     private static void ExecuteAction(ToastClickAction action, NotificationWindowConfig config, DrawingBitmap? image)
@@ -703,6 +703,16 @@ public partial class NotificationWindow : Window
                         TaskHelpers.PinToScreen(config.FilePath);
                     }
                     break;
+                case ToastClickAction.OCR:
+                    if (image != null)
+                    {
+                        _ = OCRAndDispose(image);
+                    }
+                    else
+                    {
+                        _ = TaskHelpers.OCRImage(config.FilePath);
+                    }
+                    break;
                 case ToastClickAction.DeleteFile:
                     if (TaskHelpers.ConfirmFileDelete())
                     {
@@ -722,6 +732,14 @@ public partial class NotificationWindow : Window
         }
     }
 
+    private static async System.Threading.Tasks.Task OCRAndDispose(DrawingBitmap image)
+    {
+        using (image)
+        {
+            await TaskHelpers.OCRImage(image, (TaskSettings)null);
+        }
+    }
+
     private static bool CanExecute(ToastClickAction action, NotificationWindowConfig config)
     {
         bool hasFile = !string.IsNullOrWhiteSpace(config.FilePath);
@@ -731,7 +749,7 @@ public partial class NotificationWindow : Window
 
         return action switch
         {
-            ToastClickAction.AnnotateImage or ToastClickAction.CopyImageToClipboard or ToastClickAction.PinToScreen =>
+            ToastClickAction.AnnotateImage or ToastClickAction.CopyImageToClipboard or ToastClickAction.PinToScreen or ToastClickAction.OCR =>
                 hasImageFile || hasImageInMemory,
             ToastClickAction.Upload => hasFile || hasImageInMemory,
             ToastClickAction.CopyFile or ToastClickAction.CopyFilePath or ToastClickAction.OpenFile or

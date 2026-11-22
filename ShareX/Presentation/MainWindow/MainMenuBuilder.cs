@@ -138,6 +138,7 @@ internal sealed class MainMenuBuilder
                 () => TaskHelpers.StartScreenRecording(ScreenRecordOutput.FFmpeg, ScreenRecordStartMethod.Region)),
             Item(Strings.MainMenuBuilder_ScreenRecordingGif, AppIcons.Film,
                 () => TaskHelpers.StartScreenRecording(ScreenRecordOutput.GIF, ScreenRecordStartMethod.Region)),
+            Item(Strings.MainMenuBuilder_CaptureTextOCR, AppIcons.TextRecognition, async () => await TaskHelpers.OCRImage(autoHideMainWindow: autoHide)),
             Item(Strings.MainMenuBuilder_ScrollingCapture, AppIcons.ScrollingCapture, async () => await TaskHelpers.OpenScrollingCapture()),
             Item(Strings.MainMenuBuilder_AutoCapture, AppIcons.AutoCapture, () => TaskHelpers.OpenAutoCapture()),
             MainMenuEntry.Separator(),
@@ -363,7 +364,13 @@ internal sealed class MainMenuBuilder
     private IReadOnlyList<MainMenuEntry> BuildAfterCaptureMenu()
     {
         AfterCaptureTasks value = ApplicationState.DefaultTaskSettings.AfterCaptureJob;
-        return GetAfterCaptureTaskMenuOptions(!SystemOptions.DisableUpload).Select(option => new MainMenuEntry(
+        bool copyText = value.HasFlag(AfterCaptureTasks.DoOCR) && ApplicationState.DefaultTaskSettings.CaptureSettings.OCROptions.AutoCopy;
+        MainMenuEntry copyTextEntry = new MainMenuEntry(Strings.MainMenuBuilder_CopyTextAfterCapture, AppIcons.TextRecognition,
+            () => SetCopyTextAfterCapture(!copyText),
+            isChecked: copyText,
+            toggleType: MainMenuToggleType.CheckBox,
+            boldWhenChecked: true);
+        return new[] { copyTextEntry, MainMenuEntry.Separator() }.Concat(GetAfterCaptureTaskMenuOptions(!SystemOptions.DisableUpload).Select(option => new MainMenuEntry(
             option.Header,
             option.Icon,
             () => ApplicationState.DefaultTaskSettings.AfterCaptureJob = ApplicationState.DefaultTaskSettings.AfterCaptureJob.Swap(option.Task),
@@ -371,7 +378,24 @@ internal sealed class MainMenuBuilder
             isChecked: value.HasFlag(option.Task),
             toggleType: MainMenuToggleType.CheckBox,
             staysOpenOnClick: true,
-            boldWhenChecked: true)).ToArray();
+            boldWhenChecked: true))).ToArray();
+    }
+
+    // One-click "screenshot -> text on clipboard": DoOCR after capture, silent, auto-copy.
+    internal static void SetCopyTextAfterCapture(bool enabled)
+    {
+        TaskSettings settings = ApplicationState.DefaultTaskSettings;
+        ShareX.Tools.OCROptions ocr = settings.CaptureSettings.OCROptions;
+        if (enabled)
+        {
+            settings.AfterCaptureJob |= AfterCaptureTasks.DoOCR;
+            ocr.AutoCopy = true;
+            ocr.Silent = true;
+        }
+        else
+        {
+            settings.AfterCaptureJob &= ~AfterCaptureTasks.DoOCR;
+        }
     }
 
     internal static IReadOnlyList<(AfterCaptureTasks Task, string Header, string Icon)> GetAfterCaptureTaskMenuOptions(bool includeUploadTasks = true)

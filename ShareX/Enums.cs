@@ -389,7 +389,8 @@ namespace ShareX
         OpenUrl,
         Upload,
         PinToScreen,
-        DeleteFile
+        DeleteFile,
+        OCR
     }
 
     public enum ToastWindowMonitor // Localized
