@@ -54,8 +54,13 @@ namespace ShareX
         }
 
         // ShareXg live-test harness: run region capture with default settings, no upload or after-capture tasks.
-        internal static Task<TaskMetadata> RunTestCaptureAsync() =>
-            new CaptureRegion().ExecuteRegionCaptureAvaloniaAsync(TaskSettings.GetDefaultTaskSettings());
+        internal static Task<TaskMetadata> RunTestCaptureAsync()
+        {
+            TaskSettings settings = TaskSettings.GetDefaultTaskSettings();
+            settings.CaptureSettings.RegionCaptureOptions.CrossMonitorDrag = true; // the live harness exercises the drag
+            settings.CaptureSettings.ShowCursor = false;
+            return new CaptureRegion().ExecuteRegionCaptureAvaloniaAsync(settings);
+        }
 
         protected async Task<TaskMetadata> ExecuteRegionCaptureAvaloniaAsync(TaskSettings taskSettings)
         {

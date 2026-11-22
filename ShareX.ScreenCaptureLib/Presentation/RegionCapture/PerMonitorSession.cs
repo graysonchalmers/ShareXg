@@ -99,5 +99,23 @@ public sealed class PerMonitorSession : IDisposable
         }
     }
 
+    private static readonly string LogPath = System.IO.Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ShareXg", "span-log.txt");
+
+    /// <summary>ShareXg debug: drag trace, only written while the span-log.txt file exists.</summary>
+    internal static void Log(string line)
+    {
+        try
+        {
+            if (System.IO.File.Exists(LogPath))
+            {
+                System.IO.File.AppendAllText(LogPath, $"{DateTime.Now:HH:mm:ss.fff} {line}{Environment.NewLine}");
+            }
+        }
+        catch
+        {
+        }
+    }
+
     public void Dispose() => Full.Dispose();
 }
