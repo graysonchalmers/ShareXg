@@ -246,6 +246,19 @@ internal static class Program
 
                 using SkiaSharp.SKBitmap stitched = ShareX.ScreenCaptureLib.Presentation.RegionCapture.PerMonitorSession.Crop(desktop, virtualBounds, span);
                 lines.Add($"stitched {stitched.Width}x{stitched.Height}");
+
+                // Drag path test: the same Track() the overlay timer calls, fed a press on the left monitor, a move inside
+                // it, a move onto the next monitor and a release.
+                using ShareX.ScreenCaptureLib.Presentation.RegionCapture.PerMonitorSession track = new(desktop.Copy(), virtualBounds);
+                System.Drawing.Point press = new(a.X + a.Width / 2, Math.Max(a.Y, b.Y) + 200);
+                bool s1 = track.Track(a, press, new System.Drawing.Point(press.X + 300, press.Y + 300), true);
+                bool s2 = track.Track(a, press, new System.Drawing.Point(b.X + b.Width / 2, Math.Min(a.Bottom, b.Bottom) - 200), true);
+                System.Drawing.Rectangle? during = track.Span;
+                bool s3 = track.Track(a, press, new System.Drawing.Point(b.X + b.Width / 2, Math.Min(a.Bottom, b.Bottom) - 200), false);
+                System.Drawing.Rectangle? got = track.SpanResult?.ScreenRectangle;
+                bool pass = !s1 && s2 && s3 && during == span && got == span && track.SpanResult!.Image.Width == span.Width;
+                lines.Add($"drag test: inside-start-monitor spans={s1}, onto-next-monitor spans={s2} rect={during}, release completes={s3} result={got} -> {(pass ? "PASS" : "FAIL")}");
+                track.SpanResult?.Image.Dispose();
                 using System.IO.FileStream sf = System.IO.File.Create(System.IO.Path.Combine(perMonitorDir, "span-stitched.png"));
                 stitched.Encode(sf, SkiaSharp.SKEncodedImageFormat.Png, 100);
             }

@@ -50,6 +50,32 @@ public sealed class PerMonitorSession : IDisposable
     public static Rectangle FromCorners(Point a, Point b) =>
         Rectangle.FromLTRB(Math.Min(a.X, b.X), Math.Min(a.Y, b.Y), Math.Max(a.X, b.X), Math.Max(a.Y, b.Y));
 
+    /// <summary>
+    /// One step of a drag, from the global cursor and left-button state (not from pointer events, which stop reaching
+    /// the starting overlay once the cursor is over another overlay). Returns true when the drag spans monitors.
+    /// </summary>
+    public bool Track(Rectangle startMonitor, Point start, Point cursor, bool buttonDown)
+    {
+        if (!buttonDown)
+        {
+            if (Span != null)
+            {
+                CompleteSpan();
+                return true;
+            }
+
+            return false;
+        }
+
+        if (Span == null && startMonitor.Contains(cursor))
+        {
+            return false;
+        }
+
+        UpdateSpan(FromCorners(start, cursor));
+        return true;
+    }
+
     internal void UpdateSpan(Rectangle span)
     {
         Span = span;

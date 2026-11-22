@@ -880,6 +880,7 @@ public partial class RegionCaptureWindow : Window
             }
 
             SetInteraction(RegionInteraction.Creating);
+            StartSpanTracking();
         }
 
         if (_interaction is RegionInteraction.Creating or RegionInteraction.PendingHover)
@@ -929,6 +930,7 @@ public partial class RegionCaptureWindow : Window
                 if (Distance(_pressPoint, point) >= 4)
                 {
                     SetInteraction(RegionInteraction.Creating);
+                    StartSpanTracking();
                     _selectedCandidate = null;
                     SetSelection(new CaptureRegion(_regionOverlay.HoverShape, default), null);
                     UpdateSelectionDuringCreation(point, e.KeyModifiers);
@@ -2493,13 +2495,8 @@ public partial class RegionCaptureWindow : Window
     private bool TryUpdateSpan()
     {
         PerMonitorSession? session = _request?.Session;
-        if (session == null || _freehandPoints != null || _regionOverlay.Selection.Shape != RegionShape.Rectangle)
-        {
-            return false;
-        }
-
-        DrawingPoint cursor = CaptureHelpers.GetCursorPosition();
-        if (session.Span == null && _request!.ScreenBounds.Contains(cursor))
+        if (session == null || _closing || _interaction != RegionInteraction.Creating || _freehandPoints != null ||
+            _regionOverlay.Selection.Shape != RegionShape.Rectangle)
         {
             return false;
         }
@@ -2507,8 +2504,32 @@ public partial class RegionCaptureWindow : Window
         DrawingPoint start = new(
             _request!.ScreenBounds.X + (int)Math.Round(_pressPoint.X),
             _request.ScreenBounds.Y + (int)Math.Round(_pressPoint.Y));
-        session.UpdateSpan(PerMonitorSession.FromCorners(start, cursor));
-        return true;
+        return session.Track(_request.ScreenBounds, start, CaptureHelpers.GetCursorPosition(),
+            (GetAsyncKeyState(0x01) & 0x8000) != 0);
+    }
+
+    private Avalonia.Threading.DispatcherTimer? _spanTimer;
+
+    /// <summary>ShareXg: polls the global cursor while a rectangle is being created, so a drag onto another monitor is seen.</summary>
+    private void StartSpanTracking()
+    {
+        if (_request?.Session == null)
+        {
+            return;
+        }
+
+        _spanTimer ??= new Avalonia.Threading.DispatcherTimer(TimeSpan.FromMilliseconds(15),
+            Avalonia.Threading.DispatcherPriority.Input, (_, _) =>
+            {
+                if (_closing || _interaction != RegionInteraction.Creating)
+                {
+                    _spanTimer?.Stop();
+                    return;
+                }
+
+                TryUpdateSpan();
+            });
+        _spanTimer.Start();
     }
 
     /// <summary>ShareXg: draws this monitor's part of a spanning selection (empty when it misses this monitor).</summary>

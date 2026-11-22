@@ -7,3 +7,4 @@ monitor 1 draws {X=0,Y=585,Width=1440,Height=1015}
 monitor 2 draws {X=1280,Y=200,Width=1280,Height=1015}
 monitor 3 draws {X=0,Y=0,Width=0,Height=0}
 stitched 2720x1015
+drag test: inside-start-monitor spans=False, onto-next-monitor spans=True rect={X=-1280,Y=585,Width=2720,Height=1015}, release completes=True result={X=-1280,Y=585,Width=2720,Height=1015} -> PASS
