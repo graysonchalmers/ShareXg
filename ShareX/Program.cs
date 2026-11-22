@@ -172,7 +172,15 @@ internal static class Program
         {
             int seconds = int.TryParse(testOverlay, out int s) && s > 0 ? s : 12;
             _ = Task.Run(async () => { await Task.Delay(seconds * 1000); Environment.Exit(0); });
-            await CaptureRegion.RunTestCaptureAsync();
+            using (TaskMetadata? shot = await CaptureRegion.RunTestCaptureAsync())
+            {
+                if (shot?.Image != null)
+                {
+                    string dir = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "_Screenshots");
+                    System.IO.Directory.CreateDirectory(dir);
+                    { using var fs = System.IO.File.Create(System.IO.Path.Combine(dir, $"test-span-{DateTime.Now:HHmmss}.png")); shot.Image.Encode(fs, SkiaSharp.SKEncodedImageFormat.Png, 100); }
+                }
+            }
             Environment.Exit(0);
         }
 

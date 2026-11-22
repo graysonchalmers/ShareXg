@@ -196,6 +196,7 @@ public partial class RegionCaptureWindow : Window
         }
 
         ConfigureInitialPixelBounds();
+        PerMonitorSession.Log($"open mon={_request.ScreenBounds} session={_request.Session != null}");
 
         try
         {
@@ -607,6 +608,13 @@ public partial class RegionCaptureWindow : Window
                 UpdatePixelTransforms();
             }
 
+            if (_request.PerMonitor)
+            {
+                HealPerMonitorGeometry("opened");
+                Avalonia.Threading.DispatcherTimer.RunOnce(() => HealPerMonitorGeometry("150ms"), TimeSpan.FromMilliseconds(150));
+                Avalonia.Threading.DispatcherTimer.RunOnce(() => HealPerMonitorGeometry("500ms"), TimeSpan.FromMilliseconds(500));
+            }
+
             WindowGeometryLog.Record(this, "Region capture", _request.ScreenBounds,
                 new System.Drawing.Size(_imageWidth, _imageHeight), GetGeometryChecks, trackDpiChanges: true);
 
@@ -778,6 +786,7 @@ public partial class RegionCaptureWindow : Window
 
     private void OnRegionPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        PerMonitorSession.Log($"pressed mon={_request?.ScreenBounds} session={_request?.Session != null} tool={_regionToolActive} interaction={_interaction}");
         if (_closing || _request == null || !_regionToolActive)
         {
             return;
@@ -2495,6 +2504,11 @@ public partial class RegionCaptureWindow : Window
     private bool TryUpdateSpan()
     {
         PerMonitorSession? session = _request?.Session;
+        if (session != null && (_closing || _interaction != RegionInteraction.Creating || _freehandPoints != null ||
+            _regionOverlay.Selection.Shape != RegionShape.Rectangle))
+        {
+            PerMonitorSession.Log($"skip closing={_closing} interaction={_interaction} freehand={_freehandPoints != null} shape={_regionOverlay.Selection.Shape}");
+        }
         if (session == null || _closing || _interaction != RegionInteraction.Creating || _freehandPoints != null ||
             _regionOverlay.Selection.Shape != RegionShape.Rectangle)
         {
@@ -2504,8 +2518,11 @@ public partial class RegionCaptureWindow : Window
         DrawingPoint start = new(
             _request!.ScreenBounds.X + (int)Math.Round(_pressPoint.X),
             _request.ScreenBounds.Y + (int)Math.Round(_pressPoint.Y));
-        return session.Track(_request.ScreenBounds, start, CaptureHelpers.GetCursorPosition(),
-            (GetAsyncKeyState(0x01) & 0x8000) != 0);
+        DrawingPoint cursor = CaptureHelpers.GetCursorPosition();
+        bool down = (GetAsyncKeyState(0x01) & 0x8000) != 0;
+        bool spanning = session.Track(_request.ScreenBounds, start, cursor, down);
+        PerMonitorSession.Log($"track mon={_request.ScreenBounds} press={_pressPoint} start={start} cursor={cursor} down={down} span={session.Span} -> {spanning}");
+        return spanning;
     }
 
     private Avalonia.Threading.DispatcherTimer? _spanTimer;
@@ -2513,6 +2530,7 @@ public partial class RegionCaptureWindow : Window
     /// <summary>ShareXg: polls the global cursor while a rectangle is being created, so a drag onto another monitor is seen.</summary>
     private void StartSpanTracking()
     {
+        PerMonitorSession.Log($"StartSpanTracking session={_request?.Session != null} mon={_request?.ScreenBounds}");
         if (_request?.Session == null)
         {
             return;
@@ -2541,7 +2559,10 @@ public partial class RegionCaptureWindow : Window
         }
 
         System.Drawing.Rectangle local = PerMonitorSession.LocalPart(span, _request.ScreenBounds);
+        // A stale window highlight would otherwise stay drawn on monitors the span misses.
+        _regionOverlay.HoverRectangle = default;
         SetSelection(new CaptureRegion(RegionShape.Rectangle, new Rect(local.X, local.Y, local.Width, local.Height)), null);
+        PerMonitorSession.Log($"show mon={_request.ScreenBounds} local={local} sel={_regionOverlay.SelectionRectangle} active={_regionOverlay.ActiveRectangle} size={GetImageSize()} vis={_regionOverlay.IsVisible} interaction={_interaction}");
     }
 
     /// <summary>ShareXg: closes this overlay without a result because another monitor's overlay finished.</summary>
@@ -2554,6 +2575,7 @@ public partial class RegionCaptureWindow : Window
             return;
         }
 
+        PerMonitorSession.Log($"cancel mon={_request?.ScreenBounds} {Environment.StackTrace.Replace(Environment.NewLine, " | ")}");
         _closing = true;
         _pendingResult = null;
         Close();
@@ -2676,28 +2698,98 @@ public partial class RegionCaptureWindow : Window
         // Set Position exactly once, while the HWND still has its small initial size, on the monitor Windows will take the
         // overlay's DPI from once it spans the desktop, so Avalonia and Windows agree on its scale. Then move it into place
         // in screen pixels without reassigning Position, which would let Avalonia change its cached scale.
+        // ShareXg: a per-monitor overlay never spans monitors, so it must take its own monitor's DPI. Subscribe BEFORE
+        // setting Position: moving the window onto a monitor with another DPI raises ScalingChanged synchronously, and a
+        // handler attached afterwards missed it, leaving the overlay sized for the cursor monitor's scale (resized/offset).
+        if (_request.PerMonitor)
+        {
+            // Guarded: resizing inside this handler raised ScalingChanged again (dozens of times in 250 ms) and walked the
+            // window onto the neighbouring monitor.
+            ScalingChanged += (_, _) => HealPerMonitorGeometry("scaling", force: true);
+        }
+
         System.Drawing.Point anchor = RegionCaptureFixedScale.GetDpiAnchor(_request.ScreenBounds);
         Position = new PixelPoint(anchor.X, anchor.Y);
 
         // From here the overlay spans monitors and is sized in device pixels. Keep the scale it now has, or Windows switches
         // it between the monitors' DPIs while it is resized and moved (mixed scaling) and selections miss the screenshot.
-        // ShareXg: a per-monitor overlay never spans monitors, so it must take its own monitor's DPI instead.
         if (!_request.PerMonitor)
         {
             RegionCaptureFixedScale.Apply(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
         }
-        else
-        {
-            ScalingChanged += (_, _) =>
-            {
-                ApplyPixelSize();
-                Helpers.EnsureWindowPosition(this, _request.ScreenBounds.X, _request.ScreenBounds.Y);
-                UpdatePixelTransforms();
-            };
-        }
 
         ApplyPixelSize();
         Helpers.EnsureWindowPosition(this, _request.ScreenBounds.X, _request.ScreenBounds.Y);
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct NativeRect { public int Left, Top, Right, Bottom; }
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out NativeRect rect);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr hWnd);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
+    /// <summary>
+    /// ShareXg: a per-monitor overlay must cover exactly its monitor at that monitor's DPI. If Windows and Avalonia disagree
+    /// on the DPI, or the window ended up off its monitor, put it back in device pixels and redo the pixel transforms.
+    /// </summary>
+    private bool _healingGeometry;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(System.Drawing.Point pt, uint flags);
+    [System.Runtime.InteropServices.DllImport("shcore.dll")] private static extern int GetDpiForMonitor(IntPtr monitor, int type, out uint dpiX, out uint dpiY);
+
+    private static double GetMonitorScale(System.Drawing.Rectangle bounds)
+    {
+        IntPtr monitor = MonitorFromPoint(new System.Drawing.Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2), 2);
+        return monitor != IntPtr.Zero && GetDpiForMonitor(monitor, 0, out uint dpi, out _) == 0 ? dpi / 96.0 : 0;
+    }
+
+    private void HealPerMonitorGeometry(string when, bool force = false)
+    {
+        if (_request == null || _closing || _healingGeometry || !OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        IntPtr hwnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out NativeRect r))
+        {
+            return;
+        }
+
+        System.Drawing.Rectangle actual = System.Drawing.Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
+        double dpiScale = GetDpiForWindow(hwnd) / 96.0;
+        double monitorScale = GetMonitorScale(_request.ScreenBounds);
+        bool wrongMonitorDpi = monitorScale > 0 && Math.Abs(dpiScale - monitorScale) > 0.01;
+        bool scaleOff = wrongMonitorDpi || (dpiScale > 0 && Math.Abs(dpiScale - GetRenderScaling()) > 0.01);
+        bool rectOff = actual != _request.ScreenBounds;
+        PerMonitorSession.Log($"geom {when} mon={_request.ScreenBounds} actual={actual} dpi={dpiScale} render={RenderScaling} applied={_appliedPixelScaling} mondpi={monitorScale} -> {(scaleOff || rectOff ? "HEAL" : "ok")}");
+        if (!force && !scaleOff && !rectOff && Math.Abs(_appliedPixelScaling - GetRenderScaling()) < 0.01)
+        {
+            return;
+        }
+
+        _healingGeometry = true;
+        try
+        {
+            const uint NoZOrderNoActivate = 0x0004 | 0x0010;
+            if (wrongMonitorDpi)
+            {
+                // Windows keeps a window's DPI until it moves; a small window fully inside the monitor takes its DPI
+                // (WM_DPICHANGED), then it is sized back to the monitor in device pixels below.
+                _healingGeometry = false;
+                SetWindowPos(hwnd, IntPtr.Zero, _request.ScreenBounds.X + 50, _request.ScreenBounds.Y + 50, 200, 200, NoZOrderNoActivate);
+                _healingGeometry = true;
+            }
+
+            ApplyPixelSize();
+            SetWindowPos(hwnd, IntPtr.Zero, _request.ScreenBounds.X, _request.ScreenBounds.Y,
+                _request.ScreenBounds.Width, _request.ScreenBounds.Height, NoZOrderNoActivate);
+            UpdatePixelTransforms();
+        }
+        finally
+        {
+            _healingGeometry = false;
+        }
     }
 
     private void ApplyPixelSize()
