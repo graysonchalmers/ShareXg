@@ -68,6 +68,7 @@ public sealed class NotificationActionButton
         new(ToastClickAction.CopyImageToClipboard),
         new(ToastClickAction.AnnotateImage),
         new(ToastClickAction.PinToScreen),
+        new(ToastClickAction.OCR),
         new(ToastClickAction.Upload)
     ];
 
@@ -87,6 +88,7 @@ public sealed class NotificationActionButton
         ToastClickAction.Upload => AppIcons.Upload,
         ToastClickAction.PinToScreen => AppIcons.Pin,
         ToastClickAction.DeleteFile => AppIcons.Trash,
+        ToastClickAction.OCR => AppIcons.TextRecognition,
         _ => AppIcons.Close
     };
 }

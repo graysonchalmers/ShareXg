@@ -1291,6 +1291,10 @@ namespace ShareX.HelpersLib.Localization {
         public static string ToastClickAction_OpenUrl {
             get { return ResourceManager.GetString("ToastClickAction_OpenUrl", resourceCulture); }
         }
+        public static string ToastClickAction_OCR {
+            get { return ResourceManager.GetString("ToastClickAction_OCR", resourceCulture); }
+        }
+        
         public static string ToastClickAction_PinToScreen {
             get { return ResourceManager.GetString("ToastClickAction_PinToScreen", resourceCulture); }
         }
