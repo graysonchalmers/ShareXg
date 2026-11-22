@@ -53,6 +53,10 @@ namespace ShareX
             return await ExecuteRegionCaptureAvaloniaAsync(taskSettings);
         }
 
+        // ShareXg live-test harness: run region capture with default settings, no upload or after-capture tasks.
+        internal static Task<TaskMetadata> RunTestCaptureAsync() =>
+            new CaptureRegion().ExecuteRegionCaptureAvaloniaAsync(TaskSettings.GetDefaultTaskSettings());
+
         protected async Task<TaskMetadata> ExecuteRegionCaptureAvaloniaAsync(TaskSettings taskSettings)
         {
             Screenshot screenshot = TaskHelpers.GetScreenshot(taskSettings);
@@ -155,7 +159,8 @@ namespace ShareX
                         AllowMultipleRegions = true,
                         CursorBitmap = cursorBitmap,
                         CursorPosition = cursorPosition,
-                        IsPrimaryOverlay = primary
+                        IsPrimaryOverlay = primary,
+                        PerMonitor = true
                     });
                 }
             }

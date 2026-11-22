@@ -166,6 +166,16 @@ internal static class Program
 
         // ShareXg proof harness: per-monitor region overlays. For each monitor, prints the overlay bounds and scaling and
         // writes its slice of a synthetic desktop (no real screen content) at 1:1 physical pixels. Nothing is shown on screen.
+        // ShareXg live-test harness: open the region overlays, then exit after the given seconds (default 12).
+        string? testOverlay = ApplicationCommandLine.GetParameterText("TestRegionOverlay");
+        if (ApplicationCommandLine.IsCommandPresent("TestRegionOverlay"))
+        {
+            int seconds = int.TryParse(testOverlay, out int s) && s > 0 ? s : 12;
+            _ = Task.Run(async () => { await Task.Delay(seconds * 1000); Environment.Exit(0); });
+            await CaptureRegion.RunTestCaptureAsync();
+            Environment.Exit(0);
+        }
+
         string? perMonitorDir = ApplicationCommandLine.GetParameterText("RenderPerMonitor");
         if (!string.IsNullOrEmpty(perMonitorDir))
         {

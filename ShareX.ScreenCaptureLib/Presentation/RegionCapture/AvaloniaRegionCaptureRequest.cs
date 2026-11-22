@@ -68,4 +68,7 @@ public sealed class AvaloniaRegionCaptureRequest
 
     /// <summary>ShareXg per-monitor overlay: false for overlays on monitors other than the cursor's (opened without focus).</summary>
     public bool IsPrimaryOverlay { get; init; } = true;
+
+    /// <summary>ShareXg: this overlay covers exactly one monitor and takes that monitor's DPI (no DPI lock).</summary>
+    public bool PerMonitor { get; init; }
 }

@@ -2609,7 +2609,21 @@ public partial class RegionCaptureWindow : Window
 
         // From here the overlay spans monitors and is sized in device pixels. Keep the scale it now has, or Windows switches
         // it between the monitors' DPIs while it is resized and moved (mixed scaling) and selections miss the screenshot.
-        RegionCaptureFixedScale.Apply(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
+        // ShareXg: a per-monitor overlay never spans monitors, so it must take its own monitor's DPI instead.
+        if (!_request.PerMonitor)
+        {
+            RegionCaptureFixedScale.Apply(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
+        }
+        else
+        {
+            ScalingChanged += (_, _) =>
+            {
+                ApplyPixelSize();
+                Helpers.EnsureWindowPosition(this, _request.ScreenBounds.X, _request.ScreenBounds.Y);
+                UpdatePixelTransforms();
+            };
+        }
+
         ApplyPixelSize();
         Helpers.EnsureWindowPosition(this, _request.ScreenBounds.X, _request.ScreenBounds.Y);
     }
