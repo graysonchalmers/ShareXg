@@ -2703,13 +2703,9 @@ public partial class RegionCaptureWindow : Window
         // handler attached afterwards missed it, leaving the overlay sized for the cursor monitor's scale (resized/offset).
         if (_request.PerMonitor)
         {
-            ScalingChanged += (_, _) =>
-            {
-                ApplyPixelSize();
-                Helpers.EnsureWindowPosition(this, _request.ScreenBounds.X, _request.ScreenBounds.Y);
-                UpdatePixelTransforms();
-                PerMonitorSession.Log($"scaling mon={_request.ScreenBounds} render={RenderScaling}");
-            };
+            // Guarded: resizing inside this handler raised ScalingChanged again (dozens of times in 250 ms) and walked the
+            // window onto the neighbouring monitor.
+            ScalingChanged += (_, _) => HealPerMonitorGeometry("scaling", force: true);
         }
 
         System.Drawing.Point anchor = RegionCaptureFixedScale.GetDpiAnchor(_request.ScreenBounds);
@@ -2736,9 +2732,20 @@ public partial class RegionCaptureWindow : Window
     /// ShareXg: a per-monitor overlay must cover exactly its monitor at that monitor's DPI. If Windows and Avalonia disagree
     /// on the DPI, or the window ended up off its monitor, put it back in device pixels and redo the pixel transforms.
     /// </summary>
-    private void HealPerMonitorGeometry(string when)
+    private bool _healingGeometry;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(System.Drawing.Point pt, uint flags);
+    [System.Runtime.InteropServices.DllImport("shcore.dll")] private static extern int GetDpiForMonitor(IntPtr monitor, int type, out uint dpiX, out uint dpiY);
+
+    private static double GetMonitorScale(System.Drawing.Rectangle bounds)
     {
-        if (_request == null || _closing || !OperatingSystem.IsWindows())
+        IntPtr monitor = MonitorFromPoint(new System.Drawing.Point(bounds.X + bounds.Width / 2, bounds.Y + bounds.Height / 2), 2);
+        return monitor != IntPtr.Zero && GetDpiForMonitor(monitor, 0, out uint dpi, out _) == 0 ? dpi / 96.0 : 0;
+    }
+
+    private void HealPerMonitorGeometry(string when, bool force = false)
+    {
+        if (_request == null || _closing || _healingGeometry || !OperatingSystem.IsWindows())
         {
             return;
         }
@@ -2751,19 +2758,38 @@ public partial class RegionCaptureWindow : Window
 
         System.Drawing.Rectangle actual = System.Drawing.Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
         double dpiScale = GetDpiForWindow(hwnd) / 96.0;
-        bool scaleOff = dpiScale > 0 && Math.Abs(dpiScale - GetRenderScaling()) > 0.01;
+        double monitorScale = GetMonitorScale(_request.ScreenBounds);
+        bool wrongMonitorDpi = monitorScale > 0 && Math.Abs(dpiScale - monitorScale) > 0.01;
+        bool scaleOff = wrongMonitorDpi || (dpiScale > 0 && Math.Abs(dpiScale - GetRenderScaling()) > 0.01);
         bool rectOff = actual != _request.ScreenBounds;
-        PerMonitorSession.Log($"geom {when} mon={_request.ScreenBounds} actual={actual} dpi={dpiScale} render={RenderScaling} applied={_appliedPixelScaling} -> {(scaleOff || rectOff ? "HEAL" : "ok")}");
-        if (!scaleOff && !rectOff && Math.Abs(_appliedPixelScaling - GetRenderScaling()) < 0.01)
+        PerMonitorSession.Log($"geom {when} mon={_request.ScreenBounds} actual={actual} dpi={dpiScale} render={RenderScaling} applied={_appliedPixelScaling} mondpi={monitorScale} -> {(scaleOff || rectOff ? "HEAL" : "ok")}");
+        if (!force && !scaleOff && !rectOff && Math.Abs(_appliedPixelScaling - GetRenderScaling()) < 0.01)
         {
             return;
         }
 
-        ApplyPixelSize();
-        const uint NoZOrderNoActivate = 0x0004 | 0x0010;
-        SetWindowPos(hwnd, IntPtr.Zero, _request.ScreenBounds.X, _request.ScreenBounds.Y,
-            _request.ScreenBounds.Width, _request.ScreenBounds.Height, NoZOrderNoActivate);
-        UpdatePixelTransforms();
+        _healingGeometry = true;
+        try
+        {
+            const uint NoZOrderNoActivate = 0x0004 | 0x0010;
+            if (wrongMonitorDpi)
+            {
+                // Windows keeps a window's DPI until it moves; a small window fully inside the monitor takes its DPI
+                // (WM_DPICHANGED), then it is sized back to the monitor in device pixels below.
+                _healingGeometry = false;
+                SetWindowPos(hwnd, IntPtr.Zero, _request.ScreenBounds.X + 50, _request.ScreenBounds.Y + 50, 200, 200, NoZOrderNoActivate);
+                _healingGeometry = true;
+            }
+
+            ApplyPixelSize();
+            SetWindowPos(hwnd, IntPtr.Zero, _request.ScreenBounds.X, _request.ScreenBounds.Y,
+                _request.ScreenBounds.Width, _request.ScreenBounds.Height, NoZOrderNoActivate);
+            UpdatePixelTransforms();
+        }
+        finally
+        {
+            _healingGeometry = false;
+        }
     }
 
     private void ApplyPixelSize()
