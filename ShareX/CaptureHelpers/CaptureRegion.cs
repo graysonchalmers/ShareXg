@@ -163,7 +163,7 @@ namespace ShareX
                         CursorPosition = cursorPosition,
                         IsPrimaryOverlay = primary,
                         PerMonitor = true,
-                        Session = session
+                        Session = taskSettings.CaptureSettings.RegionCaptureOptions.CrossMonitorDrag ? session : null
                     });
                 }
             }
