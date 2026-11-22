@@ -196,6 +196,7 @@ public partial class RegionCaptureWindow : Window
         }
 
         ConfigureInitialPixelBounds();
+        PerMonitorSession.Log($"open mon={_request.ScreenBounds} session={_request.Session != null}");
 
         try
         {
@@ -778,6 +779,7 @@ public partial class RegionCaptureWindow : Window
 
     private void OnRegionPointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        PerMonitorSession.Log($"pressed mon={_request?.ScreenBounds} session={_request?.Session != null} tool={_regionToolActive} interaction={_interaction}");
         if (_closing || _request == null || !_regionToolActive)
         {
             return;
@@ -2495,6 +2497,11 @@ public partial class RegionCaptureWindow : Window
     private bool TryUpdateSpan()
     {
         PerMonitorSession? session = _request?.Session;
+        if (session != null && (_closing || _interaction != RegionInteraction.Creating || _freehandPoints != null ||
+            _regionOverlay.Selection.Shape != RegionShape.Rectangle))
+        {
+            PerMonitorSession.Log($"skip closing={_closing} interaction={_interaction} freehand={_freehandPoints != null} shape={_regionOverlay.Selection.Shape}");
+        }
         if (session == null || _closing || _interaction != RegionInteraction.Creating || _freehandPoints != null ||
             _regionOverlay.Selection.Shape != RegionShape.Rectangle)
         {
@@ -2504,8 +2511,11 @@ public partial class RegionCaptureWindow : Window
         DrawingPoint start = new(
             _request!.ScreenBounds.X + (int)Math.Round(_pressPoint.X),
             _request.ScreenBounds.Y + (int)Math.Round(_pressPoint.Y));
-        return session.Track(_request.ScreenBounds, start, CaptureHelpers.GetCursorPosition(),
-            (GetAsyncKeyState(0x01) & 0x8000) != 0);
+        DrawingPoint cursor = CaptureHelpers.GetCursorPosition();
+        bool down = (GetAsyncKeyState(0x01) & 0x8000) != 0;
+        bool spanning = session.Track(_request.ScreenBounds, start, cursor, down);
+        PerMonitorSession.Log($"track mon={_request.ScreenBounds} press={_pressPoint} start={start} cursor={cursor} down={down} span={session.Span} -> {spanning}");
+        return spanning;
     }
 
     private Avalonia.Threading.DispatcherTimer? _spanTimer;
@@ -2513,6 +2523,7 @@ public partial class RegionCaptureWindow : Window
     /// <summary>ShareXg: polls the global cursor while a rectangle is being created, so a drag onto another monitor is seen.</summary>
     private void StartSpanTracking()
     {
+        PerMonitorSession.Log($"StartSpanTracking session={_request?.Session != null} mon={_request?.ScreenBounds}");
         if (_request?.Session == null)
         {
             return;
@@ -2542,6 +2553,7 @@ public partial class RegionCaptureWindow : Window
 
         System.Drawing.Rectangle local = PerMonitorSession.LocalPart(span, _request.ScreenBounds);
         SetSelection(new CaptureRegion(RegionShape.Rectangle, new Rect(local.X, local.Y, local.Width, local.Height)), null);
+        PerMonitorSession.Log($"show mon={_request.ScreenBounds} local={local} sel={_regionOverlay.SelectionRectangle} active={_regionOverlay.ActiveRectangle} size={GetImageSize()} vis={_regionOverlay.IsVisible} interaction={_interaction}");
     }
 
     /// <summary>ShareXg: closes this overlay without a result because another monitor's overlay finished.</summary>
@@ -2554,6 +2566,7 @@ public partial class RegionCaptureWindow : Window
             return;
         }
 
+        PerMonitorSession.Log($"cancel mon={_request?.ScreenBounds} {Environment.StackTrace.Replace(Environment.NewLine, " | ")}");
         _closing = true;
         _pendingResult = null;
         Close();

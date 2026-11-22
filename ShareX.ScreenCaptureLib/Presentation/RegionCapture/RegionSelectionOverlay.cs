@@ -254,12 +254,15 @@ public sealed class RegionSelectionOverlay : Control
 
     public Rect ActiveRectangle => IsValid(SelectionRectangle) ? SelectionRectangle : HoverRectangle;
 
+    private int _renderLogCount;
+
     public override void Render(DrawingContext context)
     {
         base.Render(context);
 
         Rect surface = new Rect(Bounds.Size);
         Rect active = Intersect(ActiveRectangle, surface);
+        if (_renderLogCount++ % 10 == 0) PerMonitorSession.Log($"render#{_renderLogCount} overlay={GetHashCode()} surface={surface} active={active} sel={SelectionRectangle}");
         CaptureRegion activeRegion = IsValid(SelectionRectangle)
             ? Selection with { Bounds = active }
             : new CaptureRegion(HoverShape, active);
