@@ -49,7 +49,7 @@ namespace ShareX.ScreenCaptureLib
         public bool DetectControls = true;
         public bool ActiveMonitorMode = true; // ShareXg: one monitor at a time avoids mixed-DPI overlay glitches
         public bool PerMonitorOverlay = true; // ShareXg: one overlay per monitor at native scaling; off = legacy follow-cursor overlay
-        public bool CrossMonitorDrag = false; // ShareXg: experimental; drag a rectangle across monitors (fails live, see HANDOFF)
+        public bool CrossMonitorDrag = true; // ShareXg: with PerMonitorOverlay, a drag can carry the rectangle across monitors
         public int BackgroundDimStrength = 20;
         public bool DimAllExceptSelection = false;
         public List<ImageEditorToolbarItemOptions> ToolbarItems = new List<ImageEditorToolbarItemOptions>();

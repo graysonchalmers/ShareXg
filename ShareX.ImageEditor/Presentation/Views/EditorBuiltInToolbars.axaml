@@ -80,7 +80,7 @@
                         Margin="4,0"
                         IsVisible="{Binding ShowBottomToolbar}"/>
 
-                <Grid Width="90"
+                <Grid Width="128"
                       Height="40"
                       Margin="4,0,10,0"
                       ClipToBounds="False"
@@ -93,8 +93,8 @@
                             VerticalAlignment="Bottom"
                             HorizontalAlignment="Right"
                             Width="55"
-                            Padding="27,0,10,0"
-                            CornerRadius="0,4,4,0"
+                            Padding="10,0"
+                            CornerRadius="4"
                             ToolTip.Tip="{x:Static res:Strings.EditorView_CancelEsc}"
                             ToolTip.Placement="Top"
                             ToolTip.VerticalOffset="-5"
@@ -120,8 +120,7 @@
                         <iconControls:IconPresenter Icon="{x:Static editorTheming:EditorIcons.ActionContinue}"
                                                     FontSize="20"
                                                     HorizontalAlignment="Center"
-                                                    VerticalAlignment="Center"
-                                                    Margin="4,0,0,0"/>
+                                                    VerticalAlignment="Center"/>
                     </Button>
                 </Grid>
 

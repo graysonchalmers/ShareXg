@@ -75,7 +75,7 @@ namespace ShareX.ImageEditor.Presentation.Theming
         public const string ActionCaptureRegion = AppIcons.Region;
         public const string ActionCaptureFullscreen = AppIcons.Fullscreen;
         public const string ActionCancel = AppIcons.Close;
-        public const string ActionContinue = AppIcons.Play;
+        public const string ActionContinue = AppIcons.Check; // ShareXg: check mark instead of play triangle
         public const string ActionReset = AppIcons.Refresh;
         public const string ActionRotateLeft = AppIcons.RotateLeft;
         public const string ActionRotateRight = AppIcons.RotateRight;

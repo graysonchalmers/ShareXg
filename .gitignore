@@ -333,3 +333,5 @@ Output/
 APIKeysLocal.cs
 ResXManager.config.xml
 .claude/skills
+# ShareXg: raw per-monitor harness captures (sheets are committed instead)
+proof/per-monitor/*.png

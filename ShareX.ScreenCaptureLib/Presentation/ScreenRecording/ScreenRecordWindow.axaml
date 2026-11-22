@@ -124,12 +124,19 @@
                                         Height="8"
                                         CornerRadius="4"
                                         Background="Goldenrod"/>
-                                <TextBlock x:Name="TimerText"
-                                           Text="00:00:00"
-                                           FontFamily="Cascadia Mono,Consolas"
-                                           FontSize="14"
-                                           FontWeight="Normal"
-                                           VerticalAlignment="Center"/>
+                                <StackPanel VerticalAlignment="Center">
+                                    <TextBlock x:Name="TimerText"
+                                               Text="00:00:00"
+                                               FontFamily="Cascadia Mono,Consolas"
+                                               FontSize="14"
+                                               FontWeight="Normal"/>
+                                    <TextBlock x:Name="StopHintText"
+                                               FontSize="9"
+                                               Opacity="0.7"
+                                               MaxWidth="92"
+                                               TextTrimming="CharacterEllipsis"
+                                               IsVisible="False"/>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
 

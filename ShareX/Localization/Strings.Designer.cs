@@ -1398,7 +1398,7 @@ namespace ShareX.Localization {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to ShareX hotkeys.
+        ///   Looks up a localized string similar to ShareXg hotkeys.
         /// </summary>
         public static string MainWindow_ShareXHotkeys {
             get {
