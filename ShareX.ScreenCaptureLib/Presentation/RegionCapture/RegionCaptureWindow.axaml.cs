@@ -152,7 +152,8 @@ public partial class RegionCaptureWindow : Window
         _request = request ?? throw new ArgumentNullException(nameof(request));
         _imageWidth = Math.Max(1, request.ScreenBounds.Width);
         _imageHeight = Math.Max(1, request.ScreenBounds.Height);
-        if (request.RegionCaptureOptions.ActiveMonitorMode)
+        ShowActivated = request.IsPrimaryOverlay;
+        if (request.FollowCursorMonitor)
         {
             // ShareXg: instead of trapping the cursor, close and reopen on the monitor the cursor moves to.
             _monitorWatch = new Avalonia.Threading.DispatcherTimer(TimeSpan.FromMilliseconds(120),
@@ -614,11 +615,21 @@ public partial class RegionCaptureWindow : Window
                 ActivateRegionTool();
             }
 
-            Activate();
-            Focus();
-            _regionInputSurface.Focus();
-
             DrawingPoint cursorPosition = CaptureHelpers.GetCursorPosition();
+            if (_request.IsPrimaryOverlay)
+            {
+                Activate();
+                Focus();
+                _regionInputSurface.Focus();
+            }
+            else
+            {
+                // ShareXg: not under the cursor; anchor the toolbar on this overlay's own monitor.
+                cursorPosition = new DrawingPoint(
+                    _request.ScreenBounds.X + _request.ScreenBounds.Width / 2,
+                    _request.ScreenBounds.Y + _request.ScreenBounds.Height / 2);
+            }
+
             _lastPointerPoint = ClampPoint(new Point(
                 cursorPosition.X - _request.ScreenBounds.X,
                 cursorPosition.Y - _request.ScreenBounds.Y));
@@ -1166,8 +1177,8 @@ public partial class RegionCaptureWindow : Window
         DrawingPoint saved = _request.RegionCaptureOptions.ToolbarPosition;
         if (!saved.IsEmpty)
         {
-            PixelPoint savedPoint = new(saved.X, saved.Y);
-            if (Screens.All.Any(screen => screen.Bounds.Contains(savedPoint)))
+            // ShareXg: a per-monitor overlay only uses a saved position that lies on its own monitor.
+            if (_request.ScreenBounds.Contains(saved))
             {
                 SetCaptureToolbarAnchor(
                     (saved.X - _request.ScreenBounds.X) / scale,
@@ -2460,6 +2471,9 @@ public partial class RegionCaptureWindow : Window
 
         return _windows.FirstOrDefault(window => window.IsWindow && window.Rectangle.Contains(point))?.GetWindowInfo();
     }
+
+    /// <summary>ShareXg: closes this overlay without a result because another monitor's overlay finished.</summary>
+    public void CloseWithoutResult() => CancelCapture();
 
     private void CancelCapture()
     {

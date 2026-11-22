@@ -33,6 +33,7 @@ using SkiaSharp;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace ShareX.ScreenCaptureLib.Presentation.RegionCapture;
@@ -50,6 +51,92 @@ public static class RegionCaptureIntegration
     {
         LastRegionRectangle = bounds;
         LastRegionRectangles = regions;
+    }
+
+    /// <summary>
+    /// ShareXg: one overlay per monitor, all open at once, each at its monitor's own scaling with its own slice of the
+    /// screenshot. The first overlay to finish (confirm or Esc) decides the result and closes the others.
+    /// </summary>
+    public static Task<AvaloniaRegionCaptureResult?> CaptureMultiAsync(IReadOnlyList<AvaloniaRegionCaptureRequest> requests)
+    {
+        ArgumentNullException.ThrowIfNull(requests);
+        if (requests.Count == 1)
+        {
+            return CaptureAsync(requests[0]);
+        }
+
+        void DisposeAll(int from)
+        {
+            for (int i = from; i < requests.Count; i++)
+            {
+                requests[i].Screenshot.Dispose();
+                requests[i].CursorBitmap?.Dispose();
+            }
+        }
+
+        try
+        {
+            AvaloniaBootstrapper.EnsureInitialized();
+        }
+        catch (Exception ex)
+        {
+            DisposeAll(0);
+            return Task.FromException<AvaloniaRegionCaptureResult?>(ex);
+        }
+
+        TaskCompletionSource<AvaloniaRegionCaptureResult?> completion =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Dispatcher.UIThread.Post(async () =>
+        {
+            List<RegionCaptureWindow> windows = new();
+            List<Task<AvaloniaRegionCaptureResult?>> tasks = new();
+
+            try
+            {
+                ImageEditorIntegration.Initialize();
+                // Open non-primary overlays first so the primary one ends up on top with focus.
+                foreach (AvaloniaRegionCaptureRequest request in requests.OrderBy(r => r.IsPrimaryOverlay))
+                {
+                    RegionCaptureWindow window = new(request);
+                    windows.Add(window);
+                    tasks.Add(window.CaptureAsync());
+                }
+
+                Task<AvaloniaRegionCaptureResult?> first = await Task.WhenAny(tasks);
+                foreach (RegionCaptureWindow window in windows)
+                {
+                    window.CloseWithoutResult();
+                }
+
+                AvaloniaRegionCaptureResult? result = await first;
+                foreach (Task<AvaloniaRegionCaptureResult?> task in tasks)
+                {
+                    if (task != first)
+                    {
+                        try { (await task)?.Image.Dispose(); } catch { }
+                    }
+                }
+
+                completion.TrySetResult(result);
+            }
+            catch (Exception ex)
+            {
+                foreach (RegionCaptureWindow window in windows)
+                {
+                    window.CloseWithoutResult();
+                }
+
+                if (windows.Count < requests.Count)
+                {
+                    DisposeAll(windows.Count);
+                }
+
+                completion.TrySetException(ex);
+            }
+        });
+
+        return completion.Task;
     }
 
     public static Task<AvaloniaRegionCaptureResult?> CaptureAsync(AvaloniaRegionCaptureRequest request)

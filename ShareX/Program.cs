@@ -164,6 +164,51 @@ internal static class Program
             Environment.Exit(0);
         }
 
+        // ShareXg proof harness: per-monitor region overlays. For each monitor, prints the overlay bounds and scaling and
+        // writes its slice of a synthetic desktop (no real screen content) at 1:1 physical pixels. Nothing is shown on screen.
+        string? perMonitorDir = ApplicationCommandLine.GetParameterText("RenderPerMonitor");
+        if (!string.IsNullOrEmpty(perMonitorDir))
+        {
+            System.IO.Directory.CreateDirectory(perMonitorDir);
+            System.Collections.Generic.List<string> lines = new();
+            System.Drawing.Rectangle virtualBounds = CaptureHelpers.GetScreenBounds();
+            lines.Add($"virtual {virtualBounds}");
+            Avalonia.Controls.Window probe = new();
+            DesktopScreen[] screens = DesktopScreen.AllScreens;
+            using SkiaSharp.SKBitmap desktop = new(virtualBounds.Width, virtualBounds.Height);
+            using (SkiaSharp.SKCanvas canvas = new(desktop))
+            {
+                canvas.Clear(new SkiaSharp.SKColor(40, 44, 52));
+                using SkiaSharp.SKPaint grid = new() { Color = new SkiaSharp.SKColor(90, 100, 120), StrokeWidth = 1 };
+                for (int x = 0; x < virtualBounds.Width; x += 100) canvas.DrawLine(x, 0, x, virtualBounds.Height, grid);
+                for (int y = 0; y < virtualBounds.Height; y += 100) canvas.DrawLine(0, y, virtualBounds.Width, y, grid);
+                using SkiaSharp.SKPaint edge = new() { Color = new SkiaSharp.SKColor(255, 140, 0), StrokeWidth = 8, IsStroke = true };
+                using SkiaSharp.SKFont font = new() { Size = 64 };
+                using SkiaSharp.SKPaint text = new() { Color = SkiaSharp.SKColors.White };
+                for (int i = 0; i < screens.Length; i++)
+                {
+                    System.Drawing.Rectangle b = screens[i].Bounds;
+                    float ox = b.X - virtualBounds.X, oy = b.Y - virtualBounds.Y;
+                    canvas.DrawRect(ox + 4, oy + 4, b.Width - 8, b.Height - 8, edge);
+                    canvas.DrawText($"Monitor {i + 1}  {b.Width}x{b.Height} @ {b.X},{b.Y}", ox + 60, oy + 120, font, text);
+                }
+            }
+
+            for (int i = 0; i < screens.Length; i++)
+            {
+                System.Drawing.Rectangle b = screens[i].Bounds;
+                double scaling = probe.Screens.ScreenFromPoint(new Avalonia.PixelPoint(b.X + b.Width / 2, b.Y + b.Height / 2))?.Scaling ?? 1;
+                using SkiaSharp.SKBitmap slice = CaptureRegion.SliceMonitor(desktop, virtualBounds, b);
+                bool primary = b.Contains(CaptureHelpers.GetCursorPosition());
+                lines.Add($"monitor {i + 1}: bounds {b}, scaling {scaling:0.##} ({scaling * 96:0} dpi), overlay {b.Width / scaling:0.#}x{b.Height / scaling:0.#} DIP, slice {slice.Width}x{slice.Height} px, cursor here {primary}");
+                using System.IO.FileStream fs = System.IO.File.Create(System.IO.Path.Combine(perMonitorDir, $"monitor-{i + 1}.png"));
+                slice.Encode(fs, SkiaSharp.SKEncodedImageFormat.Png, 100);
+            }
+
+            System.IO.File.WriteAllLines(System.IO.Path.Combine(perMonitorDir, "monitors.txt"), lines);
+            Environment.Exit(0);
+        }
+
         if (ApplicationState.Settings.ShowStartScreen && !StartupOptions.Sandbox)
         {
             DebugHelper.WriteLine("Start screen opening.");
