@@ -608,6 +608,13 @@ public partial class RegionCaptureWindow : Window
                 UpdatePixelTransforms();
             }
 
+            if (_request.PerMonitor)
+            {
+                HealPerMonitorGeometry("opened");
+                Avalonia.Threading.DispatcherTimer.RunOnce(() => HealPerMonitorGeometry("150ms"), TimeSpan.FromMilliseconds(150));
+                Avalonia.Threading.DispatcherTimer.RunOnce(() => HealPerMonitorGeometry("500ms"), TimeSpan.FromMilliseconds(500));
+            }
+
             WindowGeometryLog.Record(this, "Region capture", _request.ScreenBounds,
                 new System.Drawing.Size(_imageWidth, _imageHeight), GetGeometryChecks, trackDpiChanges: true);
 
@@ -2552,6 +2559,8 @@ public partial class RegionCaptureWindow : Window
         }
 
         System.Drawing.Rectangle local = PerMonitorSession.LocalPart(span, _request.ScreenBounds);
+        // A stale window highlight would otherwise stay drawn on monitors the span misses.
+        _regionOverlay.HoverRectangle = default;
         SetSelection(new CaptureRegion(RegionShape.Rectangle, new Rect(local.X, local.Y, local.Width, local.Height)), null);
         PerMonitorSession.Log($"show mon={_request.ScreenBounds} local={local} sel={_regionOverlay.SelectionRectangle} active={_regionOverlay.ActiveRectangle} size={GetImageSize()} vis={_regionOverlay.IsVisible} interaction={_interaction}");
     }
@@ -2689,28 +2698,72 @@ public partial class RegionCaptureWindow : Window
         // Set Position exactly once, while the HWND still has its small initial size, on the monitor Windows will take the
         // overlay's DPI from once it spans the desktop, so Avalonia and Windows agree on its scale. Then move it into place
         // in screen pixels without reassigning Position, which would let Avalonia change its cached scale.
-        System.Drawing.Point anchor = RegionCaptureFixedScale.GetDpiAnchor(_request.ScreenBounds);
-        Position = new PixelPoint(anchor.X, anchor.Y);
-
-        // From here the overlay spans monitors and is sized in device pixels. Keep the scale it now has, or Windows switches
-        // it between the monitors' DPIs while it is resized and moved (mixed scaling) and selections miss the screenshot.
-        // ShareXg: a per-monitor overlay never spans monitors, so it must take its own monitor's DPI instead.
-        if (!_request.PerMonitor)
-        {
-            RegionCaptureFixedScale.Apply(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
-        }
-        else
+        // ShareXg: a per-monitor overlay never spans monitors, so it must take its own monitor's DPI. Subscribe BEFORE
+        // setting Position: moving the window onto a monitor with another DPI raises ScalingChanged synchronously, and a
+        // handler attached afterwards missed it, leaving the overlay sized for the cursor monitor's scale (resized/offset).
+        if (_request.PerMonitor)
         {
             ScalingChanged += (_, _) =>
             {
                 ApplyPixelSize();
                 Helpers.EnsureWindowPosition(this, _request.ScreenBounds.X, _request.ScreenBounds.Y);
                 UpdatePixelTransforms();
+                PerMonitorSession.Log($"scaling mon={_request.ScreenBounds} render={RenderScaling}");
             };
+        }
+
+        System.Drawing.Point anchor = RegionCaptureFixedScale.GetDpiAnchor(_request.ScreenBounds);
+        Position = new PixelPoint(anchor.X, anchor.Y);
+
+        // From here the overlay spans monitors and is sized in device pixels. Keep the scale it now has, or Windows switches
+        // it between the monitors' DPIs while it is resized and moved (mixed scaling) and selections miss the screenshot.
+        if (!_request.PerMonitor)
+        {
+            RegionCaptureFixedScale.Apply(TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
         }
 
         ApplyPixelSize();
         Helpers.EnsureWindowPosition(this, _request.ScreenBounds.X, _request.ScreenBounds.Y);
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct NativeRect { public int Left, Top, Right, Bottom; }
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out NativeRect rect);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern uint GetDpiForWindow(IntPtr hWnd);
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
+    /// <summary>
+    /// ShareXg: a per-monitor overlay must cover exactly its monitor at that monitor's DPI. If Windows and Avalonia disagree
+    /// on the DPI, or the window ended up off its monitor, put it back in device pixels and redo the pixel transforms.
+    /// </summary>
+    private void HealPerMonitorGeometry(string when)
+    {
+        if (_request == null || _closing || !OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        IntPtr hwnd = TryGetPlatformHandle()?.Handle ?? IntPtr.Zero;
+        if (hwnd == IntPtr.Zero || !GetWindowRect(hwnd, out NativeRect r))
+        {
+            return;
+        }
+
+        System.Drawing.Rectangle actual = System.Drawing.Rectangle.FromLTRB(r.Left, r.Top, r.Right, r.Bottom);
+        double dpiScale = GetDpiForWindow(hwnd) / 96.0;
+        bool scaleOff = dpiScale > 0 && Math.Abs(dpiScale - GetRenderScaling()) > 0.01;
+        bool rectOff = actual != _request.ScreenBounds;
+        PerMonitorSession.Log($"geom {when} mon={_request.ScreenBounds} actual={actual} dpi={dpiScale} render={RenderScaling} applied={_appliedPixelScaling} -> {(scaleOff || rectOff ? "HEAL" : "ok")}");
+        if (!scaleOff && !rectOff && Math.Abs(_appliedPixelScaling - GetRenderScaling()) < 0.01)
+        {
+            return;
+        }
+
+        ApplyPixelSize();
+        const uint NoZOrderNoActivate = 0x0004 | 0x0010;
+        SetWindowPos(hwnd, IntPtr.Zero, _request.ScreenBounds.X, _request.ScreenBounds.Y,
+            _request.ScreenBounds.Width, _request.ScreenBounds.Height, NoZOrderNoActivate);
+        UpdatePixelTransforms();
     }
 
     private void ApplyPixelSize()
